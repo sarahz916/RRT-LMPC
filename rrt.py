@@ -11,6 +11,8 @@ import random
 import math
 import matplotlib.pyplot as plt
 
+show_animation = True
+
 class RRT():
     class Node:
         """
@@ -26,18 +28,19 @@ class RRT():
             #do we need to add angle and velocity to record state
             #can't we just calculate angel and velocity from workspace?
             
-    def __init__(self, body: Body, target_v):
+    def __init__(self, body: Body, target_v, max_iter, goal_sample_rate, expand_dis):
         self.target_v = target_v
         self.start = self.Node(body.start[0], body.start[1])
         self.end = self.Node(body.end[0], body.end[1])
-        self.min_rand = body.max_grid[0]
-        self.max_rand = body.max_grid[1]
-        # self.expand_dis = expand_dis
+        self.min_rand = 0
+        self.max_rand = body.max_x
+        self.expand_dis = expand_dis
         # self.path_resolution = path_resolution
-        # self.goal_sample_rate = goal_sample_rate
-        # self.max_iter = max_iter
+        self.goal_sample_rate = goal_sample_rate
+        self.max_iter = max_iter
         self.obstacle_list = body.obs_list
         self.node_list = []
+        self.path_resolution = .5
     
     def planning(self, animation=True):
         """
@@ -48,6 +51,9 @@ class RRT():
         self.node_list = [self.start]
         for i in range(self.max_iter):
             rnd_node = self.get_random_node()
+            
+            # NOTE: if doing state space, nearest_node_index might be difficult
+            
             nearest_ind = self.get_nearest_node_index(self.node_list, rnd_node)
             nearest_node = self.node_list[nearest_ind]
 
@@ -188,35 +194,34 @@ class RRT():
         return d, theta
 
 
-# def main(gx=6.0, gy=10.0):
-#     print("start " + __file__)
+def main(gx=6.0, gy=10.0):
+    print("start " + __file__)
 
-#     # ====Search Path with RRT====
-#     obstacleList = [(5, 5, 1), (3, 6, 2), (3, 8, 2), (3, 10, 2), (7, 5, 2),
-#                     (9, 5, 2), (8, 10, 1)]  # [x, y, radius]
-#     # Set Initial parameters
-#     rrt = RRT(
-#         start=[0, 0],
-#         goal=[gx, gy],
-#         rand_area=[-2, 15],
-#         obstacle_list= obstacleList)
-#     path = rrt.planning(animation=show_animation)
+    # ====Search Path with RRT====
+    obstacleList = [(5, 5, 1), (3, 6, 2), (3, 8, 2), (3, 10, 2), (7, 5, 2),
+                    (9, 5, 2), (8, 10, 1)]  # [x, y, radius]
+    # Set Initial parameters
+    body = Body(obstacleList,  start=(0, 0), end=(2, 15), max_grid = (20, 20))
+    rrt = RRT(
+        body, 1, 1000, 50, 1)
+    path = rrt.planning(animation=show_animation)
 
-#     if path is None:
-#         print("Cannot find path")
-#     else:
-#         print("found path!!")
+    if path is None:
+        print("Cannot find path")
+    else:
+        print("found path!!")
+        #need to create list of states for path
+        
+        # Draw final path
+        if show_animation:
+            rrt.draw_graph()
+            plt.plot([x for (x, y) in path], [y for (x, y) in path], '-r')
+            plt.grid(True)
+            plt.pause(0.01)  # Need for Mac
+            plt.show()
 
-#         # Draw final path
-#         if show_animation:
-#             rrt.draw_graph()
-#             plt.plot([x for (x, y) in path], [y for (x, y) in path], '-r')
-#             plt.grid(True)
-#             plt.pause(0.01)  # Need for Mac
-#             plt.show()
 
-
-# if __name__ == '__main__':
-#     main()
+if __name__ == '__main__':
+    main()
         
     
