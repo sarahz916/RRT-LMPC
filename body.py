@@ -33,3 +33,4 @@ class Body():
         self.end = end
         self.max_x = max_grid[0]
         self.max_y = max_grid[1]
+        #should we have a velocity range
