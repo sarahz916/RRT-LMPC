@@ -10,6 +10,7 @@ import numpy as np
 import random
 import math
 import matplotlib.pyplot as plt
+import pdb
 
 show_animation = True
 
@@ -28,19 +29,19 @@ class RRT():
             #do we need to add angle and velocity to record state
             #can't we just calculate angel and velocity from workspace?
             
-    def __init__(self, body: Body, target_v, max_iter, goal_sample_rate, expand_dis):
-        self.target_v = target_v
+    def __init__(self, body: Body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist):
+        # self.target_v = target_v
         self.start = self.Node(body.start[0], body.start[1])
         self.end = self.Node(body.end[0], body.end[1])
         self.min_rand = 0
         self.max_rand = body.max_x
         self.expand_dis = expand_dis
-        # self.path_resolution = path_resolution
+        self.path_resolution = path_resolution
         self.goal_sample_rate = goal_sample_rate
         self.max_iter = max_iter
         self.obstacle_list = body.obs_list
         self.node_list = []
-        self.path_resolution = .5
+        self.bubbleDist = bubbleDist
     
     def planning(self, animation=True):
         """
@@ -59,7 +60,8 @@ class RRT():
 
             new_node = self.steer(nearest_node, rnd_node, self.expand_dis)
 
-            if self.check_collision(new_node, self.obstacle_list):
+            # Note that this will check for collision along the entire path
+            if self.check_collision(new_node, self.obstacle_list, self.bubbleDist):
                 self.node_list.append(new_node)
 
             if animation and i % 5 == 0:
@@ -107,15 +109,18 @@ class RRT():
 
         return new_node
 
-    def generate_final_course(self, goal_ind):
-        path = [[self.end.x, self.end.y]]
+    def generate_final_course(self, goal_ind, add_inter = True):
+        path = [(self.end.x, self.end.y)]
         node = self.node_list[goal_ind]
         while node.parent is not None:
-            path.append([node.x, node.y])
+            if add_inter:
+                path.extend(list(zip(node.path_x[::-1], node.path_y[::-1])))
+            else:
+                path.append((node.x, node.y))
             node = node.parent
-        path.append([node.x, node.y])
 
-        return path
+        # Aaron added reversing the path
+        return path[::-1]
 
     def calc_dist_to_goal(self, x, y):
         dx = x - self.end.x
@@ -170,7 +175,7 @@ class RRT():
         return minind
 
     @staticmethod
-    def check_collision(node, obstacleList):
+    def check_collision(node, obstacleList, bubbleDist=0):
 
         if node is None:
             return False
@@ -179,8 +184,8 @@ class RRT():
             dx_list = [ox - x for x in node.path_x]
             dy_list = [oy - y for y in node.path_y]
             d_list = [dx * dx + dy * dy for (dx, dy) in zip(dx_list, dy_list)]
-
-            if min(d_list) <= size**2:
+            
+            if min(d_list) <= (size + bubbleDist) **2:
                 return False  # collision
 
         return True  # safe
@@ -202,8 +207,7 @@ def main(gx=6.0, gy=10.0):
                     (9, 5, 2), (8, 10, 1)]  # [x, y, radius]
     # Set Initial parameters
     body = Body(obstacleList,  start=(0, 0), end=(2, 15), max_grid = (20, 20))
-    rrt = RRT(
-        body, 1, 1000, 50, 1)
+    rrt = RRT(body, 1000, 50, 1, 0.01, 0.2) # body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist
     path = rrt.planning(animation=show_animation)
 
     if path is None:
@@ -220,6 +224,7 @@ def main(gx=6.0, gy=10.0):
             plt.pause(0.01)  # Need for Mac
             plt.show()
 
+        pdb.set_trace()
 
 if __name__ == '__main__':
     main()
