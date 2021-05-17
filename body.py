@@ -9,7 +9,7 @@ Created on Sat May 15 21:25:54 2021
 import numpy as np
 
 class Body():
-    def __init__(self, obs_list: list, start: tuple, end: tuple, max_grid: tuple ):
+    def __init__(self, obs_list: list, start: tuple, end: tuple, max_grid: tuple, max_velocity = None, heading_ang = None):
         """
         
         Parameters
@@ -34,3 +34,5 @@ class Body():
         self.max_x = max_grid[0]
         self.max_y = max_grid[1]
         #should we have a velocity range
+        self.max_velocity = max_velocity
+        self.heading_ang = heading_ang

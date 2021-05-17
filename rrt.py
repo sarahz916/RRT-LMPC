@@ -5,6 +5,8 @@ Created on Sat May 15 21:25:08 2021
 @author: zousa
 """
 # RRT Code for CS 159 Final Project
+# Code based off of author: AtsushiSakai(@Atsushi_twi) from Python Robotics
+
 from body import Body
 import numpy as np
 import random
@@ -26,11 +28,8 @@ class RRT():
             self.path_x = []
             self.path_y = []
             self.parent = None
-            #do we need to add angle and velocity to record state
-            #can't we just calculate angel and velocity from workspace?
             
     def __init__(self, body: Body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist):
-        # self.target_v = target_v
         self.start = self.Node(body.start[0], body.start[1])
         self.end = self.Node(body.end[0], body.end[1])
         self.min_rand = 0
@@ -224,7 +223,8 @@ def main(gx=6.0, gy=10.0):
             plt.pause(0.01)  # Need for Mac
             plt.show()
 
-        pdb.set_trace()
+        #pdb.set_trace()
+    return path
 
 if __name__ == '__main__':
     main()
