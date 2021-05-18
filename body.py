@@ -9,7 +9,7 @@ Created on Sat May 15 21:25:54 2021
 import numpy as np
 
 class Body():
-    def __init__(self, obs_list: list, start: tuple, end: tuple, max_grid: tuple, max_velocity = None, heading_ang = None):
+    def __init__(self, obs_list: list, start: tuple, end: tuple, max_grid: tuple, max_velocity = None, heading_ang = math.pi/2):
         """
         
         Parameters
