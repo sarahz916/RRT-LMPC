@@ -14,7 +14,7 @@ import math
 import matplotlib.pyplot as plt
 import pdb
 
-show_animation = True
+show_animation = False
 
 class RRT():
     class Node:
@@ -42,7 +42,7 @@ class RRT():
         self.node_list = []
         self.bubbleDist = bubbleDist
     
-    def planning(self, animation=True):
+    def planning(self, animation=False):
         """
         rrt path planning
         animation: flag for animation on or off
