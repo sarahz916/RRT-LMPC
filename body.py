@@ -7,9 +7,11 @@ Created on Sat May 15 21:25:54 2021
 # Body Class for CS 159 Final Project
 
 import numpy as np
+import math
 
 class Body():
-    def __init__(self, obs_list: list, start: tuple, end: tuple, max_grid: tuple, max_velocity = None, heading_ang = math.pi/2):
+    def __init__(self, obs_list: list, start: tuple, end: tuple, max_grid: tuple,
+                 max_velocity = 10, heading_ang = math.pi/2):
         """
         
         Parameters
