@@ -5,6 +5,8 @@ Created on Sat May 15 21:25:08 2021
 @author: zousa
 """
 # RRT Code for CS 159 Final Project
+# Code based off of author: AtsushiSakai(@Atsushi_twi) from Python Robotics
+
 from body import Body
 import numpy as np
 import random
@@ -12,7 +14,7 @@ import math
 import matplotlib.pyplot as plt
 import pdb
 
-show_animation = True
+show_animation = False
 
 class RRT():
     class Node:
@@ -26,11 +28,8 @@ class RRT():
             self.path_x = []
             self.path_y = []
             self.parent = None
-            #do we need to add angle and velocity to record state
-            #can't we just calculate angel and velocity from workspace?
             
     def __init__(self, body: Body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist):
-        # self.target_v = target_v
         self.start = self.Node(body.start[0], body.start[1])
         self.end = self.Node(body.end[0], body.end[1])
         self.min_rand = 0
@@ -43,7 +42,7 @@ class RRT():
         self.node_list = []
         self.bubbleDist = bubbleDist
     
-    def planning(self, animation=True):
+    def planning(self, animation=False):
         """
         rrt path planning
         animation: flag for animation on or off
@@ -199,34 +198,5 @@ class RRT():
         return d, theta
 
 
-def main(gx=6.0, gy=10.0):
-    print("start " + __file__)
-
-    # ====Search Path with RRT====
-    obstacleList = [(5, 5, 1), (3, 6, 2), (3, 8, 2), (3, 10, 2), (7, 5, 2),
-                    (9, 5, 2), (8, 10, 1)]  # [x, y, radius]
-    # Set Initial parameters
-    body = Body(obstacleList,  start=(0, 0), end=(2, 15), max_grid = (20, 20))
-    rrt = RRT(body, 1000, 50, 1, 0.01, 0.2) # body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist
-    path = rrt.planning(animation=show_animation)
-
-    if path is None:
-        print("Cannot find path")
-    else:
-        print("found path!!")
-        #need to create list of states for path
-        
-        # Draw final path
-        if show_animation:
-            rrt.draw_graph()
-            plt.plot([x for (x, y) in path], [y for (x, y) in path], '-r')
-            plt.grid(True)
-            plt.pause(0.01)  # Need for Mac
-            plt.show()
-
-        pdb.set_trace()
-
-if __name__ == '__main__':
-    main()
         
     
