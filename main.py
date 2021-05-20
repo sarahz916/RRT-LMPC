@@ -10,10 +10,18 @@ from pid import pid
 import matplotlib.pyplot as plt
 import numpy as np
 
-show_animation = True
 
-def main(gx=6.0, gy=10.0):
-    print("start " + __file__)
+def show_path_and_demos(path, demos, j):
+    plt.plot([x for (x, y) in path], [y for (x, y) in path], '-r')
+    for i in range(j):
+        # plot demos
+        states = demos[i][1]
+        plt.plot([state[0][0] for state in states], [state[0][1] for state in states])
+    plt.grid(True)
+    plt.pause(0.01)  # Need for Mac
+    plt.show()
+
+def main(j: int):
 
     # ====Search Path with RRT====
     obstacleList = [(5, 5, 1), (3, 6, 2), (3, 8, 2), (3, 10, 2), (7, 5, 2),
@@ -25,24 +33,18 @@ def main(gx=6.0, gy=10.0):
 
     if path is None:
         print("Cannot find path")
+        return 
     else:
         print("found path!!")
         #need to create list of states for path
-        inputs, states = pid(body, path, .1)
-        print(states)
-        #pos = np.array(states)
+        demos = []
+        for i in range(j):
+            inputs, states = pid(body, path, .1)
+            demos.append([inputs, states])
         # Draw final path
-        if show_animation:
-            rrt.draw_graph()
-            plt.plot([x for (x, y) in path], [y for (x, y) in path], '-r')
-            plt.plot([state[0][0] for state in states], [state[0][1] for state in states], '-b')
-            plt.grid(True)
-            plt.pause(0.01)  # Need for Mac
-            plt.show()
-
-        #pdb.set_trace()
+        show_path_and_demos(path, demos, j)
     
-    return inputs, states
+    return demos
 
 if __name__ == '__main__':
-    main()
+    main(3)

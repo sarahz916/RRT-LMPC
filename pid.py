@@ -9,6 +9,9 @@ import math
 import pdb
 import random 
 
+# TODO: Check that pid does not run into obstacles
+# TODO: Make sure pid ranges is within workspace
+
 def next_state(curr_state, acc, theta_dot, dt):
     new_ang = theta_dot * dt + curr_state[2]
     new_vel = acc*dt + curr_state[1]
@@ -23,7 +26,7 @@ def dist(p1, p2):
     dy = p1[1] - p2[1]
     return math.sqrt(dx**2 + dy**2)
 
-def pid(body: Body, path, dt):
+def pid(body: Body, org_path, dt):
     # state:
     #   0 - position (x, y)
     #   1 - velocity
@@ -33,6 +36,7 @@ def pid(body: Body, path, dt):
     # also =need inputs
     # state + input don't need to know the past to predict the future
     # how to determine time step? as small as you can with limit of computation time
+    path = org_path.copy()
     curr_pt = path.pop(0)
     next_pt = path.pop(0)
     states = []
