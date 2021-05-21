@@ -6,7 +6,7 @@ Created on Wed May 19 10:19:26 2021
 """
 from rrt import RRT
 from body import Body 
-from pid import pid
+from make_demo import make_demo
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -39,12 +39,13 @@ def main(j: int):
         #need to create list of states for path
         demos = []
         for i in range(j):
-            inputs, states = pid(body, path, .1)
+            inputs, states = make_demo(body, path, .1)
             demos.append([inputs, states])
         # Draw final path
+        rrt.draw_graph()
         show_path_and_demos(path, demos, j)
     
     return demos
 
 if __name__ == '__main__':
-    main(3)
+    main(100)

@@ -26,7 +26,7 @@ def dist(p1, p2):
     dy = p1[1] - p2[1]
     return math.sqrt(dx**2 + dy**2)
 
-def pid(body: Body, org_path, dt):
+def make_demo(body: Body, org_path, dt):
     # state:
     #   0 - position (x, y)
     #   1 - velocity
@@ -41,6 +41,7 @@ def pid(body: Body, org_path, dt):
     next_pt = path.pop(0)
     states = []
     inputs = []
+    # TODO: append start input
     states.append([curr_pt, 1, 0])
     while dist(curr_pt, body.end) > dt:
         #add in state for every dt

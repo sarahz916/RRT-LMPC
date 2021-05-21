@@ -6,6 +6,7 @@ Created on Sat May 15 21:25:08 2021
 """
 # RRT Code for CS 159 Final Project
 # Code based off of author: AtsushiSakai(@Atsushi_twi) from Python Robotics
+# Modified by Sarah Zou
 
 from body import Body
 import numpy as np
