@@ -13,13 +13,14 @@ import random
 # TODO: Make sure pid ranges is within workspace
 
 def next_state(curr_state, acc, theta_dot, dt):
-    new_ang = theta_dot * dt + curr_state[2]
-    new_vel = acc*dt + curr_state[1]
-    avg_vel = (new_vel + curr_state[1])/2
-    avg_theta = (new_ang + curr_state[2])/2
-    new_x = avg_vel * dt * math.sin(avg_theta) + curr_state[0][0]
-    new_y = avg_vel * dt * math.cos(avg_theta) + curr_state[0][1]
-    return [(new_x, new_y), new_vel, new_ang]
+    new_ang = theta_dot * dt + curr_state[3]
+    new_vel = acc*dt + curr_state[2]
+    avg_vel = (new_vel + curr_state[2])/2
+    avg_theta = (new_ang + curr_state[3])/2
+    new_x = avg_vel * dt * math.cos(avg_theta) + curr_state[0]
+    new_y = avg_vel * dt * math.sin(avg_theta) + curr_state[1]
+    #pdb.set_trace()
+    return [new_x, new_y, new_vel, new_ang]
 
 def dist(p1, p2):
     dx = p1[0] - p2[0]
@@ -28,9 +29,10 @@ def dist(p1, p2):
 
 def make_demo(body: Body, org_path, dt):
     # state:
-    #   0 - position (x, y)
-    #   1 - velocity
-    #   2 - heading angle (w.r.t to y axis)
+    #   0 - position x
+    #   1 - position y
+    #   2 - velocity
+    #   3 - heading angle (w.r.t to y axis)
     # ang want a right turn to be pi/2 rad and left turn pi/2
     # state evolves with the dynamics of the system, fully characterize the history
     # also =need inputs
@@ -41,8 +43,9 @@ def make_demo(body: Body, org_path, dt):
     next_pt = path.pop(0)
     states = []
     inputs = []
-    # TODO: append start input
-    states.append([curr_pt, 1, 0])
+    # TODO: work out when to append input
+    inputs.append([1, 0])
+    states.append([curr_pt[0], curr_pt[1], 1, 0])
     while dist(curr_pt, body.end) > dt:
         #add in state for every dt
         if dist(curr_pt, next_pt) < dt: #is within a time step
@@ -52,22 +55,22 @@ def make_demo(body: Body, org_path, dt):
             dx = next_pt[0] - curr_pt[0]
             dy = next_pt[1] - curr_pt[1]
             acc = 0
-            if (dy == 0):
-                if dx > 0:
+            if (dx == 0):
+                if dy > 0:
                     ang = math.pi/2
-                elif dx < 0:
-                    ang = - math.pi/2
+                elif dy < 0:
+                    ang = -math.pi/2
             else:
-                ang = math.atan(dx/dy)
-            if (dy < 0):
+                ang = math.atan(dy/dx)
+            if (dx < 0):
                 ang = ang + math.pi
-            d_ang = (ang - curr_state[2]) / dt + random.gauss(0, math.pi)
+            d_ang = (ang - curr_state[3]) / dt + random.gauss(0, math.pi/2)
             if abs(d_ang) > body.heading_ang/dt:
                 d_ang = math.copysign(body.heading_ang/dt, d_ang)
             inputs.append([acc, d_ang])
             states.append(next_state(curr_state, acc, d_ang, dt))
-            curr_pt = states[-1][0]
-           
+            curr_pt = (states[-1][0], states[-1][1])
+            #pdb.set_trace()
     return inputs, states
 
 # how to add variation of PID

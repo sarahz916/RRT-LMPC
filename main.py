@@ -16,7 +16,7 @@ def show_path_and_demos(path, demos, j):
     for i in range(j):
         # plot demos
         states = demos[i][1]
-        plt.plot([state[0][0] for state in states], [state[0][1] for state in states])
+        plt.plot([state[0] for state in states], [state[1] for state in states])
     plt.grid(True)
     plt.pause(0.01)  # Need for Mac
     plt.show()
@@ -39,7 +39,7 @@ def main(j: int):
         #need to create list of states for path
         demos = []
         for i in range(j):
-            inputs, states = make_demo(body, path, .1)
+            inputs, states = make_demo(body, path, .01)
             demos.append([inputs, states])
         # Draw final path
         rrt.draw_graph()
