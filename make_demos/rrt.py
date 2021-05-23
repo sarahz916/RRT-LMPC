@@ -17,6 +17,7 @@ import pdb
 
 show_animation = False
 
+#NOTE: expand_distance might be dependent on max_acc and max_theta_dot of body
 class RRT():
     class Node:
         """
@@ -30,7 +31,8 @@ class RRT():
             self.path_y = []
             self.parent = None
             
-    def __init__(self, body: Body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist):
+    def __init__(self, body: Body, max_iter, goal_sample_rate, expand_dis, 
+                 path_resolution, bubbleDist):
         self.start = self.Node(body.start[0], body.start[1])
         self.end = self.Node(body.end[0], body.end[1])
         self.min_rand = 0

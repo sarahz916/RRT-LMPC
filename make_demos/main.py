@@ -27,7 +27,7 @@ def main(j: int):
     obstacleList = [(5, 5, 1), (3, 6, 2), (3, 8, 2), (3, 10, 2), (7, 5, 2),
                     (9, 5, 2), (8, 10, 1)]  # [x, y, radius]
     # Set Initial parameters
-    body = Body(obstacleList,  start=(0, 0), end=(2, 15), max_grid = (20, 20))
+    body = Body(obstacleList,  start_state=(0, 0, 0, 0), end_state=(2, 15, 0, 0), max_grid = (20, 20))
     rrt = RRT(body, 1000, 50, 1, 0.01, 0.2) # body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist
     path = rrt.planning()
 
@@ -39,8 +39,9 @@ def main(j: int):
         #need to create list of states for path
         demos = []
         for i in range(j):
-            inputs, states = make_demo(body, path, .01)
-            demos.append([inputs, states])
+            inputs, states, f = make_demo(body, path, .1)
+            if f == 1:
+                demos.append([inputs, states])
         # Draw final path
         rrt.draw_graph()
         show_path_and_demos(path, demos, j)
