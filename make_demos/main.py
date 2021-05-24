@@ -30,7 +30,7 @@ def main(j: int):
     body = Body(obstacleList,  start_state=(0, 0, 0, 0), end_state=(2, 15, 0, 0), max_grid = (20, 20))
     rrt = RRT(body, 1000, 50, 1, 0.01, 0.2) # body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist
     path = rrt.planning()
-
+    np.save("path.npy", np.array(path))
     if path is None:
         print("Cannot find path")
         return 
@@ -49,4 +49,7 @@ def main(j: int):
     return demos
 
 if __name__ == '__main__':
-    main(100)
+    demos = main(10)
+    for demo in demos:
+        print(demo[1][-1] - [2, 15, 0, 0]) #notice we're quite close to desired
+        # end state

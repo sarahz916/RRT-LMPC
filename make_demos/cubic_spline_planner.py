@@ -383,5 +383,5 @@ def main():  # pragma: no cover
     print(sp.calcXY(*sp.calcSY(a,b))) # Works well
     pdb.set_trace()
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
