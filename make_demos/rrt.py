@@ -111,18 +111,41 @@ class RRT():
 
         return new_node
 
-    def generate_final_course(self, goal_ind, add_inter = True):
-        path = [(self.end.x, self.end.y)]
+    # Aaron updated to avoide duplicating points 
+    # and don't put in goal anymore
+    # add_inter = False
+    def generate_final_course(self, goal_ind):
+        # Aaron changed so don't add the goal index
+        path = []
+        # path = [(self.end.x, self.end.y)]
         node = self.node_list[goal_ind]
         while node.parent is not None:
-            if add_inter:
-                path.extend(list(zip(node.path_x[::-1], node.path_y[::-1])))
-            else:
-                path.append((node.x, node.y))
+            # if add_inter:
+            #     # Exclude the start node so no repeats then flip
+            #     xPart = node.path_x[1:][::-1]
+            #     yPart = node.path_y[1:][::-1]
+            #     path.extend(list(zip(xPart, yPart)))
+            # else:
+            path.append((node.x, node.y))
             node = node.parent
 
+        # Now, add the start node
+        path.append((node.x, node.y))
         # Aaron added reversing the path
         return path[::-1]
+
+    # def generate_final_course(self, goal_ind, add_inter = True):
+    #     path = [(self.end.x, self.end.y)]
+    #     node = self.node_list[goal_ind]
+    #     while node.parent is not None:
+    #         if add_inter:
+    #             path.extend(list(zip(node.path_x[::-1], node.path_y[::-1])))
+    #         else:
+    #             path.append((node.x, node.y))
+    #         node = node.parent
+
+    #     # Aaron added reversing the path
+    #     return path[::-1]
 
     def calc_dist_to_goal(self, x, y):
         dx = x - self.end.x
