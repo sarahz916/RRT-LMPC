@@ -299,6 +299,19 @@ def calc_spline_course(x, y, ds=0.1):
 def computeDynamics(s, y, v, theta, acc, theta_dot):
     pass
 
+def fit_path(path, ds = 0.1):
+    x = path[:,0]
+    y = path[:,1]
+    sp = Spline2D(x, y)
+    s = np.arange(0, sp.s[-1], ds)
+
+    new_path = []
+    for i_s in s:
+        ix, iy = sp.calc_position(i_s)
+        new_path.append((ix, iy))
+    return new_path
+
+
 def main():  # pragma: no cover
     print("Spline 2D test")
     import matplotlib.pyplot as plt
@@ -385,5 +398,5 @@ def main():  # pragma: no cover
     print('after invert: x1, y1', sp.calcXY(*sp.calcSY(x1,y1)))
     pdb.set_trace()
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

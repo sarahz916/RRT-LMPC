@@ -71,7 +71,7 @@ def nlp_to_end(body, curr_state,dt):
     f = nlp.feasible
     return nlp.xPred, nlp.uPred, f
 
-def make_demo(body: Body, org_path, dt, target_velocity = 1, tol = .0001):
+def make_demo(body: Body, org_path: list, dt, target_velocity = 1, tol = .0001):
     # state:
     #   0 - position x
     #   1 - position y
@@ -101,10 +101,12 @@ def make_demo(body: Body, org_path, dt, target_velocity = 1, tol = .0001):
             
     # go to end state
     # USE FTOCOP to get to end state
+    curr_state = states[-1]
     inputs = np.array(inputs)
     states = np.array(states)
     x_pred, u_pred, f = nlp_to_end(body, curr_state, dt)
     #print(x_pred)
+    pdb.set_trace()
     states = np.append(states, x_pred[1:], axis=0)
     inputs = np.append(inputs, u_pred, axis=0)
     return inputs, states, f

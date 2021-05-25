@@ -9,7 +9,8 @@ from body import Body
 from make_demo import make_demo
 import matplotlib.pyplot as plt
 import numpy as np
-
+from cubic_spline_planner import fit_path
+import pdb
 
 def show_path_and_demos(path, demos, j):
     plt.plot([x for (x, y) in path], [y for (x, y) in path], '-r')
@@ -30,16 +31,18 @@ def main(j: int):
     body = Body(obstacleList,  start_state=(0, 0, 0, 0), end_state=(2, 15, 0, 0), max_grid = (20, 20))
     rrt = RRT(body, 1000, 50, 1, 0.01, 0.2) # body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist
     path = rrt.planning()
-    np.save("path.npy", np.array(path))
     if path is None:
         print("Cannot find path")
         return 
     else:
         print("found path!!")
+        pdb.set_trace()
         #need to create list of states for path
+        fitted_path = fit_path(np.array(path), ds = 0.1)
+        pdb.set_trace()
         demos = []
         for i in range(j):
-            inputs, states, f = make_demo(body, path, .1)
+            inputs, states, f = make_demo(body, fitted_path, .1)
             if f == 1:
                 demos.append([inputs, states])
         # Draw final path
@@ -50,6 +53,6 @@ def main(j: int):
 
 if __name__ == '__main__':
     demos = main(10)
-    for demo in demos:
-        print(demo[1][-1] - [2, 15, 0, 0]) #notice we're quite close to desired
-        # end state
+    # for demo in demos:
+    #     print(demo[1][-1] - [2, 15, 0, 0]) #notice we're quite close to desired
+    #     # end state
