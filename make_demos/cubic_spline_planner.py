@@ -385,5 +385,5 @@ def main():  # pragma: no cover
     print('after invert: x1, y1', sp.calcXY(*sp.calcSY(x1,y1)))
     pdb.set_trace()
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
