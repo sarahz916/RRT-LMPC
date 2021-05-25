@@ -180,13 +180,13 @@ class Spline2D:
         return yaw
     
     # Given s, compute d/ds gamma(s)
-    def calc_yawPrime(self, s):
-        dx = self.sx.calcd(s)
-        ddx = self.sx.calcdd(s)
-        dy = self.sy.calcd(s)
-        ddy = self.sy.calcdd(s)
-        yawPrime = (ddy * dx - ddx * dy) / ((dx ** 2 + dy ** 2)**2)
-        return yawPrime
+    # def calc_yawPrime(self, s):
+    #     dx = self.sx.calcd(s)
+    #     ddx = self.sx.calcdd(s)
+    #     dy = self.sy.calcd(s)
+    #     ddy = self.sy.calcdd(s)
+    #     yawPrime = (ddy * dx - ddx * dy) / ((dx ** 2 + dy ** 2)**2)
+    #     return yawPrime
     
     # Compute the unit normal and non-unit tangent vector at given point
     def calcTangentNormal(self, s):
@@ -215,7 +215,8 @@ class Spline2D:
         return x1, y1
         
     # Convert from x1, y1 to s, y
-    def calcSY(self, x1, y1, eps = 1e-4, maxIter = 0):
+    # eps = 1e-4, maxIter = 100
+    def calcSY(self, x1, y1):
         # maxIter = 10, shrink=0.9, startSize = 5
         # Compute the point which minimizes distance from x1, y1 to x0, y0 
         # Potentially refine by repeating process for increasingly
@@ -259,23 +260,23 @@ class Spline2D:
         #     print('y', y)
         #     print('x, y',self.calcXY(s, y))
             
-        count = 0
-        inner = 1
-        while abs(inner) > eps and count < maxIter:
-            pdb.set_trace()
-            estNormal = point - np.array(self.calc_position(s))
-            tangent = [self.sx.calcd(s), self.sy.calcd(s)]
-            # Use normalized inner product
-            inner = np.dot(estNormal , tangent) / np.linalg.norm(estNormal) / np.linalg.norm(tangent)
-            print('normal mag = ', np.linalg.norm(estNormal))
-            print('tangent mag = ', np.linalg.norm(tangent))
-            print('count = ', count)
-            print('s = ', s)
-            print('x,y = ', self.calcXY(s,y))
-            print('inner = ', inner)
-            s += inner # Move in direction of inner product
-            y = np.linalg.norm(point - np.array(self.calc_position(s)))
-            count += 1
+        # count = 0
+        # inner = 1
+        # while abs(inner) > eps and count < maxIter:
+        #     estNormal = point - np.array(self.calc_position(s))
+        #     tangent = [self.sx.calcd(s), self.sy.calcd(s)]
+        #     # Use normalized inner product
+        #     inner = np.dot(estNormal, tangent) / np.linalg.norm(estNormal) / np.linalg.norm(tangent)
+            
+        #     dx = self.sx.calcd(s)
+        #     dy = self.sy.calcd(s)
+        #     r = np.sqrt(dx**2 + dy**2)
+        #     nx = - dy / r
+        #     ny = dx / r
+        #     y = np.dot(np.array([nx, ny]), estNormal)
+        #     s += inner # Move in direction of inner product
+        #     s = max(0, min(s, self.end)) # Make sure remains in bounds
+        #     count += 1
             
         return s, y
 
@@ -308,6 +309,10 @@ def main():  # pragma: no cover
     
     x = path[:,0]
     y = path[:,1]
+    
+    plt.figure()
+    plt.title('Original path')
+    plt.scatter(x, y)
     
     ds = 0.1  # [m] distance of each interpolated points
 
@@ -363,24 +368,21 @@ def main():  # pragma: no cover
     yVals = [sp.calc_position(s)[1] for s in sVals]
     dxVals = [sp.sx.calcd(s) for s in sVals]
     dyVals = [sp.sy.calcd(s) for s in sVals]
-    plt.scatter(sVals, xVals, label='dx')
-    plt.scatter(sVals, yVals, label='dy')
+    plt.scatter(sVals, dxVals, label='dx')
+    plt.scatter(sVals, dyVals, label='dy')
     plt.xlabel('s')
     plt.legend()
 
-    # plt.subplots(1)
-    # plt.title('Plotting gammaPrime(s)')
-    # gammaVals = [sp.calc_yaw(s) for s in sVals]
-    # gammaPrimeVals = [sp.calc_yawPrime(s) for s in sVals]
-    # plt.plot(sVals[:-1], np.diff(gammaVals) / (sVals[1] - sVals[0]), label='1st Order Diff Approx')
-    # plt.plot(sVals, gammaPrimeVals, label='Gamma Prime Estimate')
-    # plt.legend()
+    # Note that should choose a point that is not too far from path otherwise no 
+    # guarantees since mapping only local
     
-    a = np.random.uniform(0, 5)
-    b = np.random.uniform(0, 5)
-    print('a',a,'b',b)
-    print(sp.calcSY(*sp.calcXY(a,b))) # Has trouble
-    print(sp.calcXY(*sp.calcSY(a,b))) # Works well
+    s = np.random.uniform(0, sp.end)
+    y = np.random.uniform(0, 0.5)
+    x1, y1 = sp.calcXY(s,y)
+    print('s','y', s, y)
+    print('x1','y1', x1, y1)
+    print('after invert: s, y', sp.calcSY(*sp.calcXY(s,y)))
+    print('after invert: x1, y1', sp.calcXY(*sp.calcSY(x1,y1)))
     pdb.set_trace()
 
 if __name__ == '__main__':
