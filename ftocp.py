@@ -210,10 +210,11 @@ class FTOCP(object):
         C_eq = self.C
         
         # Modify G_eq to account for lambda
-        largeG = np.zeros(G_eq.shape[0]+self.n, G_eq.shape[1]+self.k)
+        largeG = np.zeros(G_eq.shape[0]+self.n+1, G_eq.shape[1]+self.k)
         largeG[:G_eq.shape[0], :G_eq.shape[1]] = G_eq
         largeG[G_eq.shape[0]:, self.n * (self.N-1): self.n * self.N] = -np.eye(self.n)
         largeG[G_eq.shape[0]:, -self.k:] = self.terminalPoints
+        largeG[-1, -self.k:] = 1 # Adds constraint that sum of lambdas = 1
         G_eq = largeG
         
         # Modify E_eq, C_eq to account for lambda

@@ -5,15 +5,20 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from ftocp import FTOCP
+from scipy import linalg
+from casadi import sin, cos
 
 class LMPC(object):
     
-    # Assume some demonstrations are given so that SS is non-empty
-    # SS should be a list of states
-    def __init__(self, N, Q, R, SS, spline, dt, width, amax, amin, theta_dotMax, theta_dotMin, printLevel):
+    # Assume some demonstrations are given so that before calling 
+    # runSQP SS is non-empty
+    # SS should be a list of states and values contains corresponding value
+    # for them
+    def __init__(self, N, K, Q, Qf, R, SS, values, spline, dt, width, amax, amin, theta_dotMax, theta_dotMin, printLevel):
         self.printLevel = printLevel
         self.N = N
         self.Q = Q
+        self.Qf = Qf
         self.R = R
         self.SS = SS
         self.dt = dt
@@ -26,7 +31,8 @@ class LMPC(object):
         self.goal = np.array([spline.end, 0, 0, 0])
         # Start with s = 0, on centerline, 0 angle, 0 velocity
         self.start = np.array([0, 0, 0, 0])
-        # TODO: Need to compute the value function approximation for each point in SS
+        self.values = values
+        self.K = K # Number of nearest neighbors to use
         
     # Given a current location, run one open-loop trajectory using SQP
     # numIters controls how many times to run batch approach
@@ -63,41 +69,118 @@ class LMPC(object):
                 
     # Run a full trajectory going from start to end of the spline using
     # closed-loop receding horizon updating
-    def runTrajectory(self):
+    def runTrajectory(self, nthPoint, eps = 1, maxIter = 1e3):
+        # Placeholders
+        distLeft = np.inf
+        xPred = []
+        uPred = []
+        
+        count = 0
+        x0 = self.start
+        xTraj = []
+        uTraj = []
+        
         # while not sufficiently close to goal state and < max iterations:
+        while distLeft > eps and count < maxIter:
             # 1. Set target
             # If this is first iteration, use the N'th point from the last
             # trajectory
             # Else, use the final state predicted by the last SQP run
-            
+            if count == 0:
+                target = nthPoint
+            else:
+                target = xPred[-1]
+                
             # 2. Determine terminal region
-            # Compute new terminalPoints and valuePoints using nearest neighbors
+            # Select new terminalPoints and get corresponding valuePoints 
+            # using nearest neighbors
+            safeIndices = self.computeKnearest(self.K, target)
+            # Should be a matrix of form n x K
+            terminalPoints = np.array([self.SS[ind] for ind in safeIndices]).T
+            valuePoints = np.array([self.values[ind] for ind in safeIndices])
             
             # 3. If this is not the first iteration, set uGuess using
             # one-offset from past SQP uPred as in HW2 problem 1 ftocp 
             # uGuessUpdate code
             # Else, leave uGuess as none
+            uGuess = None
+            if count > 0:
+                uGuess = []
+                for i in range(self.N):
+                    # So, if i < N-1 get uPred[i+1]
+                    # and then uGuess[N-1] = uPred[N-1]
+                    uGuess.append(uPred[min(i+1, self.N-1)])
             
             # 4. runSQP using the current state. Save uPred for step 3 and 
-            # last state in xPred for step 1. Execute the first control action:
+            # last state in xPred for step 1.
+            xPred, uPred = self.runSQP(x0, self.goal, terminalPoints, valuePoints, uGuess)
+            
+            # 5. Execute the first control action:
             # compute the updated state using the *nonlinear* dynamics and this
             # control action.
+            xNext = self.dynamics(x0, uPred[0])
             
-            # 5. Record the executed control action and updated state  
-        
+            # 6. Record the executed control action and updated state  
+            xTraj.append(xNext)
+            uTraj.append(uPred[0])
+            
+            # 7. Compute the new distance to goal and update count
+            deltaX = xNext - self.goal
+            distLeft = deltaX.T @ self.Q @ deltaX
+            count += 1
+            
         # return the list of executed control actions and corresponding states
-        pass
+        xTraj, uTraj
     
     # Takes in a state, determines K-nearest neighbors in SS, K = numNearest
     # and returns the relevant indices into SS
+    # Uses inner product defined by self.Q
     def computeKnearest(self, numNearest, target):
-        # Each state in self.SS will become a row so want axis=1 to
-        # take norm across each row
-        return np.argsort(np.linalg.norm(target - np.array(self.SS), axis=1))[:numNearest]
+        # Each state in self.SS will become a row
+        # Should be numStates x n 
+        deltaX = target - np.array(self.SS) 
+        numStates = deltaX.shape[0]
+        listQ = [self.Q] * numStates
+        barQ = linalg.block_diag(linalg.block_diag(*listQ))
+        
+        # Gives generalized distance
+        distance = deltaX.T @ barQ @ deltaX
+        return np.argsort(distance)[:numNearest]
     
     # Given a new, full trajectory defined by xTraj, uTraj update the SS
     # and value function
+    # xTraj, uTraj should be lists where each element is an array
     def updateSSandValueFunction(self, xTraj, uTraj):
-        pass
+        # Start at trajectory end and work backwards adding costs
+        M = len(xTraj)
+        listQ = [self.Q] * (M-1) + [self.Qf]
+        listR = [self.R] * M
+        
+        pointValues = []
+        for i in range(M-1,-1,-1):
+            deltaX = xTraj[i] - self.goal
+            stageCost = deltaX.T @ listQ[i] @ deltaX + uTraj[i].T @ listR[i] @ uTraj[i]
+            costToCome = pointValues[-1]
+            pointValues.append(stageCost, costToCome)
+        
+        pointValues = pointValues[::-1]
+        self.SS.extend(xTraj)
+        self.values.extend(pointValues)
     
-    
+    def dynamics(self, x, u):
+        # state = [s, y, v, theta]
+        # input = [acc, theta_dot]
+        # use Euler discretization
+        gamma = self.spline.calc_yaw(x[0])
+        curvature = self.spline.calc_yaw(x[0])
+        deltaS = x[2] * cos(x[3] - gamma) / (1 - gamma * curvature)
+        deltaY = x[2] * sin(x[3] - gamma)
+        s_next      = x[0] + self.dt * deltaS
+        y_next      = x[1] + self.dt * deltaY
+        v_next      = x[2] + self.dt * u[0]
+        theta_next  = x[3] + self.dt * u[1]
+
+        state_next = [s_next, y_next, v_next, theta_next]
+
+        return state_next
+
