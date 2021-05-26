@@ -51,11 +51,11 @@ class LMPC(object):
         ftocp = FTOCP(self.N, self.Q, self.R, self.Fx, self.bx, self.Fu, self.bu, terminalPoints, valuePoints, self.spline, self.dt, uGuess, goal, self.printLevel)
         if self.printLevel >= 2:
             fig, ax = plt.subplots()
-            ax.title('Predicted trajectory')
+            ax.set_title('Predicted trajectory')
             ax.set_xlabel('$x_1$')
             ax.set_ylabel('$x_2$')
-            ax.xlim(-1,12)
-            ax.ylim(-1,10)
+            ax.set_xlim(-1,12)
+            ax.set_ylim(-1,10)
             ax.legend()
             
         for i in range(numIters):

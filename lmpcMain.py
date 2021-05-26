@@ -37,7 +37,7 @@ def main(j: int):
     R  = 0.01*np.eye(d)
     Qf = 1000*np.eye(n)
     dt = 0.1
-    printLevel = 0
+    printLevel = 2
     width = 0.2
     amax = body.max_acc
     amin = -body.max_acc

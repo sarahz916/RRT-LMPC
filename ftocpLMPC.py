@@ -76,6 +76,11 @@ class FTOCP(object):
 
         # Solve QP
         startTimer = datetime.datetime.now()
+        
+        pdb.set_trace()
+        G = self.G_in
+        A = self.G_eq
+        
         self.osqp_solve_qp(self.H, self.q, self.G_in, np.add(self.w_in, np.dot(self.E_in,x0)), self.G_eq, np.add(np.dot(self.E_eq,x0), self.C_eq) )
         endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
         self.solverTime = deltaTimer
@@ -139,7 +144,7 @@ class FTOCP(object):
         
         if self.printLevel >= 2:
             print("G_in: ")
-            print(G_in)
+            print(G_in.shape)
             print("E_in: ")
             print(E_in)
             print("w_in: ", w_in)			
@@ -212,18 +217,19 @@ class FTOCP(object):
         # Modify G_eq to account for lambda
         largeG = np.zeros((G_eq.shape[0]+self.n+1, G_eq.shape[1]+self.k))
         largeG[:G_eq.shape[0], :G_eq.shape[1]] = G_eq
-        largeG[G_eq.shape[0]:, self.n * (self.N-1): self.n * self.N] = -np.eye(self.n)
-        largeG[G_eq.shape[0]:, -self.k:] = self.terminalPoints
+        largeG[G_eq.shape[0] + 1:, self.n * (self.N-1): self.n * self.N] = -np.eye(self.n)
+        largeG[G_eq.shape[0] + 1:, -self.k:] = self.terminalPoints
         largeG[-1, -self.k:] = 1 # Adds constraint that sum of lambdas = 1
         G_eq = largeG
         
         # Modify E_eq, C_eq to account for lambda
-        E_eq = np.vstack([E_eq, np.zeros(self.k, E_eq.shape[1])])
-        C_eq = np.vstack([C_eq, np.zeros(self.k, C_eq.shape[1])])
+        E_eq = np.vstack([E_eq, np.zeros((self.k, E_eq.shape[1]))])
+        #C_eq = np.vstack([C_eq.T, np.zeros((self.k,))]) #C_eq.shape is (4, ) 
+        C_eq = np.concatenate((C_eq, np.zeros((self.k,))), axis=0)
         
         if self.printLevel >= 2:
             print("G_eq: ")
-            print(G_eq)
+            print(G_eq.shape)
             print("E_eq: ")
             print(E_eq)
             print("C_eq: ", C_eq)
@@ -312,7 +318,7 @@ class FTOCP(object):
 
         C = self.dynamics(x, u) - A @ x - B @ u
             
-        pdb.set_trace()
+        #pdb.set_trace()
         
         return A, B, C
     
@@ -331,8 +337,9 @@ class FTOCP(object):
         l = -inf * ones(len(h))
         qp_l = hstack([l, b])
         qp_u = hstack([h, b])
-
-        self.osqp = OSQP()
+        
+        pdb.set_trace()
+        self.osqp = OSQP() #A has shape (437, 270) and l havs shape (272) 
         self.osqp.setup(P=P, q=q, A=qp_A, l=qp_l, u=qp_u, verbose=False, polish=True)
 
         if initvals is not None:
