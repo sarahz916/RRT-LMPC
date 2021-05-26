@@ -51,7 +51,7 @@ class FTOCP(object):
         self.goal = goal
         
         self.buildIneqConstr()
-        self.buildAutomaticDifferentiationTree()
+        # self.buildAutomaticDifferentiationTree()
         self.buildCost()
 
         self.time = 0
@@ -232,40 +232,90 @@ class FTOCP(object):
         self.G_eq = sparse.csc_matrix(G_eq)
         self.E_eq = E_eq
         
-    def buildAutomaticDifferentiationTree(self):
-        # Define variables
-        n  = self.n
-        d  = self.d
-        X      = SX.sym('X', n);
-        U      = SX.sym('U', d);
+    # def buildAutomaticDifferentiationTree(self):
+    #     # Define variables
+    #     n  = self.n
+    #     d  = self.d
+    #     X      = SX.sym('X', n);
+    #     U      = SX.sym('U', d);
 
-        X_next = self.dynamics(X, U)
-        self.constraint = []
-        for i in range(0, n):
-            self.constraint = vertcat(self.constraint, X_next[i] )
+    #     X_next = self.dynamics(X, U)
+    #     self.constraint = []
+    #     for i in range(0, n):
+    #         self.constraint = vertcat(self.constraint, X_next[i] )
 
-        self.A_Eval = Function('A',[X,U],[jacobian(self.constraint,X)])
-        self.B_Eval = Function('B',[X,U],[jacobian(self.constraint,U)])
-        self.f_Eval = Function('f',[X,U],[self.constraint])
+    #     self.A_Eval = Function('A',[X,U],[jacobian(self.constraint,X)])
+    #     self.B_Eval = Function('B',[X,U],[jacobian(self.constraint,U)])
+    #     self.f_Eval = Function('f',[X,U],[self.constraint])
 	
-    def buildLinearizedMatrices(self, x, u):
-        # Give a linearization point (x, u) this function return an affine approximation of the nonlinear system dynamics
-        A_linearized = np.array(self.A_Eval(x, u))
-        B_linearized = np.array(self.B_Eval(x, u))
-        C_linearized = np.squeeze(np.array(self.f_Eval(x, u))) - np.dot(A_linearized, x) - np.dot(B_linearized, u)
+    # def buildLinearizedMatrices(self, x, u):
+    #     # Give a linearization point (x, u) this function return an affine approximation of the nonlinear system dynamics
+    #     A_linearized = np.array(self.A_Eval(x, u))
+    #     B_linearized = np.array(self.B_Eval(x, u))
+    #     C_linearized = np.squeeze(np.array(self.f_Eval(x, u))) - np.dot(A_linearized, x) - np.dot(B_linearized, u)
 		
-        if self.printLevel >= 3:
-            print("Linearization x: ", x)
-            print("Linearization u: ", u)
-            print("Linearized A")
-            print(A_linearized)
-            print("Linearized B")
-            print(B_linearized)
-            print("Linearized C")
-            print(C_linearized)
+    #     if self.printLevel >= 3:
+    #         print("Linearization x: ", x)
+    #         print("Linearization u: ", u)
+    #         print("Linearized A")
+    #         print(A_linearized)
+    #         print("Linearized B")
+    #         print(B_linearized)
+    #         print("Linearized C")
+    #         print(C_linearized)
 
-        return A_linearized, B_linearized, C_linearized
+    #     return A_linearized, B_linearized, C_linearized
 
+    def buildLinearizedMatrices(self, x, u):
+        s = x[0]
+        y = x[1]
+        v = x[2]
+        theta = x[3]
+        gamma = self.spline.calc_yaw(s)
+        k = self.spline.calc_curvature(s)
+        kPrime = self.spline.calc_curvaturePrime(s)
+        gammaPrime = self.spline.calc_yawPrime(s)
+        # d/ds [ cos(theta - gamm) / (1- gamma K)]
+        temp = sin(theta - gamma) * gammaPrime * (1 - gamma * k) + \
+                cos(theta - gamma) * (gammaPrime * k + kPrime * gamma)
+        
+        A = np.zeros(4,4)
+        
+        # s derivatives
+        A[0,0] = 1 + v * self.dt * self.v * temp
+        A[1,0] = - v * self.dt * cos(theta - gamma) * k 
+        A[2,0] = 0
+        A[3,0] = 0
+        
+        # y derivatives
+        A[0,1] = 0
+        A[1,1] = 1
+        A[1,2] = 0
+        A[1,3] = 0
+        
+        # v derivatives
+        A[0,2] = self.dt * cos(theta - gamma) / (1-gamma * k)
+        A[1,2] = self.dt * sin(theta - gamma)
+        A[2,2] = 1
+        A[3,2] = 0
+        
+        # theta derivatives
+        A[0,3] = - self.dt * v * sin(theta - gamma)
+        A[1,3] = - self.dt * v * cos(theta - gamma)
+        A[2,3] = 0
+        A[3,3] = 1
+        
+        B = np.zeros(4,2)
+        
+        B[2,0] = self.dt
+        B[3,1] = self.dt
+
+        C = self.dynamics(x, u) - A @ x - B @ u
+            
+        pdb.set_trace()
+        
+        return A, B, C
+    
     def osqp_solve_qp(self, P, q, G= None, h=None, A=None, b=None, initvals=None):
         """ 
         Solve a Quadratic Program defined as:
@@ -300,8 +350,11 @@ class FTOCP(object):
         # state = [s, y, v, theta]
         # input = [acc, theta_dot]
         # use Euler discretization
-        gamma = self.spline.calc_yaw(x[0])
-        curvature = self.spline.calc_yaw(x[0])
+        try:
+            gamma = self.spline.calc_yaw(x[0])
+            curvature = self.spline.calc_curvature(x[0])
+        except:
+            pdb.set_trace()
         deltaS = x[2] * cos(x[3] - gamma) / (1 - gamma * curvature)
         deltaY = x[2] * sin(x[3] - gamma)
         s_next      = x[0] + self.dt * deltaS

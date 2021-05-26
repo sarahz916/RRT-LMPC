@@ -184,7 +184,7 @@ class LMPC(object):
         # input = [acc, theta_dot]
         # use Euler discretization
         gamma = self.spline.calc_yaw(x[0])
-        curvature = self.spline.calc_yaw(x[0])
+        curvature = self.spline.calc_curvature(x[0])
         deltaS = x[2] * cos(x[3] - gamma) / (1 - gamma * curvature)
         deltaY = x[2] * sin(x[3] - gamma)
         s_next      = x[0] + self.dt * deltaS
