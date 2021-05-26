@@ -67,10 +67,13 @@ class Spline:
             return None
         elif t > self.x[-1]:
             return None
-
+        
+        # i = np.argmin(np.abs(t-np.array(self.x)))-1
+        
         i = self.__search_index(t)
         dx = t - self.x[i]
         result = self.b[i] + 2.0 * self.c[i] * dx + 3.0 * self.d[i] * dx ** 2.0
+        
         return result
 
     def calcdd(self, t):
@@ -86,6 +89,21 @@ class Spline:
         i = self.__search_index(t)
         dx = t - self.x[i]
         result = 2.0 * self.c[i] + 6.0 * self.d[i] * dx
+        return result
+    
+    def calcddd(self, t):
+        """
+        Calc third derivative
+        """
+        
+        if t < self.x[0]:
+            return None
+        elif t > self.x[-1]:
+            return None
+
+        i = self.__search_index(t)
+        dx = t - self.x[i]
+        result = 6.0 * self.d[i]
         return result
 
     def __search_index(self, x):
@@ -139,7 +157,6 @@ class Spline2D:
         self.end = np.max(self.s)
         self.PointTangent = np.array([[ds*i, self.calc_position(ds*i)[0], self.calc_position(ds*i)[1], self.sx.calcd(ds*i), self.sy.calcd(ds*i)] for i in range(0,int(self.end/ds))])
         
-    # Gets the total path length s
     def __calc_s(self, x, y):
         dx = np.diff(x)
         dy = np.diff(y)
@@ -180,13 +197,27 @@ class Spline2D:
         return yaw
     
     # Given s, compute d/ds gamma(s)
-    # def calc_yawPrime(self, s):
-    #     dx = self.sx.calcd(s)
-    #     ddx = self.sx.calcdd(s)
-    #     dy = self.sy.calcd(s)
-    #     ddy = self.sy.calcdd(s)
-    #     yawPrime = (ddy * dx - ddx * dy) / ((dx ** 2 + dy ** 2)**2)
-    #     return yawPrime
+    def calc_yawPrime(self, s):
+        dx = self.sx.calcd(s)
+        ddx = self.sx.calcdd(s)
+        dy = self.sy.calcd(s)
+        ddy = self.sy.calcdd(s)
+        yawPrime = (ddy * dx - ddx * dy) / (dx ** 2 + dy ** 2)
+        return yawPrime
+    
+    # Given s, compute d/ds K(s)
+    def calc_curvaturePrime(self, s):
+        dx = self.sx.calcd(s)
+        ddx = self.sx.calcdd(s)
+        dddx = self.sx.calcddd(s)
+        dy = self.sy.calcd(s)
+        ddy = self.sy.calcdd(s)
+        dddy = self.sy.calcddd(s)
+        
+        firstTerm = (dddy * dx - dddx * dy) / (dx**2 + dy**2)**(3/2)
+        secondTerm = 3 * (dx * ddy - ddx * dy) * (dx * ddx + dy * ddy) / (dx**2 + dy**2)**(5/2)
+        
+        return firstTerm - secondTerm
     
     # Compute the unit normal and non-unit tangent vector at given point
     def calcTangentNormal(self, s):
@@ -293,11 +324,6 @@ def calc_spline_course(x, y, ds=0.1):
         rk.append(sp.calc_curvature(i_s))
 
     return rx, ry, ryaw, rk, s
-
-# Given the state: s,y,v,theta and inputs: acc, theta_dot
-# compute the linearized dynamics of system
-def computeDynamics(s, y, v, theta, acc, theta_dot):
-    pass
 
 def fit_path(path, ds = 0.1):
     x = path[:,0]
