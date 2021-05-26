@@ -149,7 +149,7 @@ class Spline2D:
     # Compute and store for a fixed set of s values along the path
     # the corresponding s, x(s), y(s), x'(s), y'(s) values for later use
     # Store points at intervals of ds path length
-    def __init__(self, x, y, ds=0.05):
+    def __init__(self, x, y, ds=0.005):
         self.s = self.__calc_s(x, y)
         self.sx = Spline(self.s, x)
         self.sy = Spline(self.s, y)

@@ -4,9 +4,10 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from ftocp import FTOCP
+from ftocpLMPC import FTOCP
 from scipy import linalg
 from casadi import sin, cos
+import pdb
 
 class LMPC(object):
     
@@ -33,6 +34,10 @@ class LMPC(object):
         self.start = np.array([0, 0, 0, 0])
         self.values = values
         self.K = K # Number of nearest neighbors to use
+        self.amax = amax
+        self.amin = amin
+        self.theta_dotMax = theta_dotMax
+        self.theta_dotMin = theta_dotMin
         
     # Given a current location, run one open-loop trajectory using SQP
     # numIters controls how many times to run batch approach
@@ -82,6 +87,7 @@ class LMPC(object):
         
         # while not sufficiently close to goal state and < max iterations:
         while distLeft > eps and count < maxIter:
+            print('Count is ' + str(count))
             # 1. Set target
             # If this is first iteration, use the N'th point from the last
             # trajectory
@@ -140,11 +146,14 @@ class LMPC(object):
         # Should be numStates x n 
         deltaX = target - np.array(self.SS) 
         numStates = deltaX.shape[0]
-        listQ = [self.Q] * numStates
-        barQ = linalg.block_diag(linalg.block_diag(*listQ))
+        # listQ = [self.Q] * numStates
+        # barQ = linalg.block_diag(linalg.block_diag(*listQ))
         
+        # Diagonal elements of this matrix give the squared Q-norms
+        distance = np.diag(deltaX @ self.Q @ deltaX.T)
+                
         # Gives generalized distance
-        distance = deltaX.T @ barQ @ deltaX
+        # distance = deltaX.T @ barQ @ deltaX
         return np.argsort(distance)[:numNearest]
     
     # Given a new, full trajectory defined by xTraj, uTraj update the SS
@@ -160,8 +169,11 @@ class LMPC(object):
         for i in range(M-1,-1,-1):
             deltaX = xTraj[i] - self.goal
             stageCost = deltaX.T @ listQ[i] @ deltaX + uTraj[i].T @ listR[i] @ uTraj[i]
-            costToCome = pointValues[-1]
-            pointValues.append(stageCost, costToCome)
+            if len(pointValues):
+                costToCome = pointValues[-1]
+            else:
+                costToCome = 0
+            pointValues.append(stageCost + costToCome)
         
         pointValues = pointValues[::-1]
         self.SS.extend(xTraj)

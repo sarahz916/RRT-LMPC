@@ -73,7 +73,12 @@ def main(j: int):
     
     # Add all the trajectories
     for demo in demos:
+        # Need to convert from x,y to s,y representation
         xTraj = demo[1][1:] # xTraj right now includes x(0) which remove
+        for i,x in enumerate(xTraj):
+            xTraj[i][:2] = spline.calcSY(xTraj[i][0], xTraj[i][1])
+            if xTraj[i][0] < 0:
+                pdb.set_trace()
         uTraj = demo[0]
         lmpcSolver.updateSSandValueFunction(xTraj, uTraj)
         
