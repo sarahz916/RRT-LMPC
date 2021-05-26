@@ -279,10 +279,10 @@ class FTOCP(object):
         temp = sin(theta - gamma) * gammaPrime * (1 - gamma * k) + \
                 cos(theta - gamma) * (gammaPrime * k + kPrime * gamma)
         
-        A = np.zeros(4,4)
+        A = np.zeros((4,4))
         
         # s derivatives
-        A[0,0] = 1 + v * self.dt * self.v * temp
+        A[0,0] = 1 + v * self.dt * temp
         A[1,0] = - v * self.dt * cos(theta - gamma) * k 
         A[2,0] = 0
         A[3,0] = 0
@@ -290,8 +290,8 @@ class FTOCP(object):
         # y derivatives
         A[0,1] = 0
         A[1,1] = 1
-        A[1,2] = 0
-        A[1,3] = 0
+        A[2,1] = 0
+        A[3,1] = 0
         
         # v derivatives
         A[0,2] = self.dt * cos(theta - gamma) / (1-gamma * k)

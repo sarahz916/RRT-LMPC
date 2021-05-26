@@ -105,8 +105,6 @@ def make_demo(body: Body, org_path: list, dt, target_velocity = 1, tol = .0001):
     inputs = np.array(inputs)
     states = np.array(states)
     x_pred, u_pred, f = nlp_to_end(body, curr_state, dt)
-    #print(x_pred)
-    pdb.set_trace()
     states = np.append(states, x_pred[1:], axis=0)
     inputs = np.append(inputs, u_pred, axis=0)
     return inputs, states, f

@@ -46,7 +46,7 @@ class LMPC(object):
     # uPred with offset of one as uGuess
     def runSQP(self, x0, goal, terminalPoints, valuePoints, uGuess = None, numIters=2):
         if uGuess is None:
-            uGuess = [np.array([self.amax / 10, self.theta_dotMax / 10])]*self.N
+            uGuess = [np.array([self.amax / 100, 0])]*self.N
         
         ftocp = FTOCP(self.N, self.Q, self.R, self.Fx, self.bx, self.Fu, self.bu, terminalPoints, valuePoints, self.spline, self.dt, uGuess, goal, self.printLevel)
         if self.printLevel >= 2:
