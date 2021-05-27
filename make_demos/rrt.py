@@ -17,6 +17,9 @@ import pdb
 
 show_animation = False
 
+# TODO: make rrt for efficient
+# TODO: take max_acc, and max_theta_dot into consideration
+
 #NOTE: expand_distance might be dependent on max_acc and max_theta_dot of body
 class RRT():
     class Node:
@@ -179,7 +182,7 @@ class RRT():
         plt.plot(self.start.x, self.start.y, "xr")
         plt.plot(self.end.x, self.end.y, "xr")
         plt.axis("equal")
-        plt.axis([-2, 15, -2, 15])
+        plt.axis([0, self.max_rand, 0, self.max_rand])
         plt.grid(True)
         plt.pause(0.01)
 

@@ -11,9 +11,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from cubic_spline_planner import fit_path
 import pdb
+import environments
 
-def show_path_and_demos(path, demos, j):
-    plt.plot([x for (x, y) in path], [y for (x, y) in path], '-r')
+def show_path_and_demos(path, demos: list, j: int):
+    plt.plot([x for (x, y) in path], [y for (x, y) in path], 'or')
     for i in range(j):
         # plot demos
         states = demos[i][1]
@@ -21,14 +22,17 @@ def show_path_and_demos(path, demos, j):
     plt.grid(True)
     plt.pause(0.01)  # Need for Mac
     plt.show()
+    # TODO: add in legend
 
 def main(j: int):
 
     # ====Search Path with RRT====
-    obstacleList = [(5, 5, 1), (3, 6, 2), (3, 8, 2), (3, 10, 2), (7, 5, 2),
-                    (9, 5, 2), (8, 10, 1)]  # [x, y, radius]
+    # obstacleList = [(5, 5, 1), (3, 6, 2), (3, 8, 2), (3, 10, 2), (7, 5, 2),
+    #                 (9, 5, 2), (8, 10, 1)]  # [x, y, radius]
+    
+    obstacleList = environments.obstacle_list_2
     # Set Initial parameters
-    body = Body(obstacleList,  start_state=(0, 0, 0, 0), end_state=(2, 15, 0, 0), max_grid = (20, 20))
+    body = Body(obstacleList,  start_state=(0, 0, 0, 0), end_state=(20, 20, 0, 0), max_grid = (20, 20))
     rrt = RRT(body, 1000, 50, 1, 0.01, 0.2) # body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist
     path = rrt.planning()
     if path is None:
@@ -36,10 +40,8 @@ def main(j: int):
         return 
     else:
         print("found path!!")
-        pdb.set_trace()
         #need to create list of states for path
         fitted_path = fit_path(np.array(path), ds = 0.1)
-        pdb.set_trace()
         demos = []
         for i in range(j):
             inputs, states, f = make_demo(body, fitted_path, .1)
@@ -47,7 +49,7 @@ def main(j: int):
                 demos.append([inputs, states])
         # Draw final path
         rrt.draw_graph()
-        show_path_and_demos(path, demos, j)
+        show_path_and_demos(fitted_path, demos, j)
     
     return demos
 
