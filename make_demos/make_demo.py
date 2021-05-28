@@ -22,8 +22,8 @@ def next_state(curr_state, acc, theta_dot, dt):
     new_vel = acc*dt + curr_state[2]
     avg_vel = (new_vel + curr_state[2])/2
     avg_theta = (new_ang + curr_state[3])/2
-    new_x = curr_state[2] * dt * math.cos(avg_theta) + curr_state[0]
-    new_y = curr_state[2] * dt * math.sin(avg_theta) + curr_state[1]
+    new_x = avg_vel * dt * math.cos(avg_theta) + curr_state[0]
+    new_y = avg_vel * dt * math.sin(avg_theta) + curr_state[1]
     #pdb.set_trace()
     return [new_x, new_y, new_vel, new_ang]
 
@@ -57,7 +57,6 @@ def calc_angle(curr_pt, next_pt):
 
 def nlp_to_end(body, curr_state,dt):
     x0 = np.array(curr_state)
-    sys  = system(x0, dt) # initialize system object
     goal = np.array(body.end)
     N  = 40; n = 4; d = 2;
     Q  = 1*np.eye(n)
@@ -92,7 +91,7 @@ def make_demo(body: Body, org_path: list, dt, target_velocity = 1, tol = .0001):
             next_pt = path.pop(0)
         else:
             ang = calc_angle(curr_pt, next_pt)
-            ang = ang + random.gauss(0, math.pi/8) #add noise 
+            ang = ang + random.gauss(0, math.pi/20) #add noise 
             tar_state = [next_pt[0], next_pt[1], target_velocity, ang]
             next_input = calc_input(body, curr_state, tar_state, dt)
             inputs.append(next_input)

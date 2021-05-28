@@ -30,10 +30,11 @@ def main(j: int):
     # obstacleList = [(5, 5, 1), (3, 6, 2), (3, 8, 2), (3, 10, 2), (7, 5, 2),
     #                 (9, 5, 2), (8, 10, 1)]  # [x, y, radius]
     
-    obstacleList = environments.obstacle_list_2
+    dt = .1
+    obstacleList = environments.obstacle_list_4
     # Set Initial parameters
-    body = Body(obstacleList,  start_state=(0, 0, 0, 0), end_state=(20, 20, 0, 0), max_grid = (20, 20))
-    rrt = RRT(body, 1000, 50, 1, 0.01, 0.2) # body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist
+    body = Body(obstacleList,  start_state=(0, 0, 0, 0), end_state=(15, 15, 0, 0), max_grid = (15, 15))
+    rrt = RRT(body, 1000, 50, 1, 0.01, 0.2, dt) # body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist
     path = rrt.planning()
     if path is None:
         print("Cannot find path")
@@ -44,7 +45,7 @@ def main(j: int):
         fitted_path = fit_path(np.array(path), ds = 0.1)
         demos = []
         for i in range(j):
-            inputs, states, f = make_demo(body, fitted_path, .1)
+            inputs, states, f = make_demo(body, fitted_path, dt)
             if f == 1:
                 demos.append([inputs, states])
         # Draw final path

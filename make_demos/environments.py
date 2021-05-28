@@ -22,7 +22,16 @@ obstacle_list_1 = [(5, 5, 1), (3, 6, 2), (3, 8, 2), (3, 10, 2), (7, 5, 2),
 obstacle_list_2 = [(3, 8, 2), (3, 10, 2), (7, 5, 2),
                 (9, 5, 2), (8, 10, 1), (12, 12, 5)]  # [x, y, radius]
 
-obstacle_list = obstacle_list_2
+obstacle_list_3 = [(5, 5, 1), (3, 6, 3), (3, 8, 3), (3, 10, 2), (7, 5, 2),
+                (9, 5, 2), (8, 10, 1)]  # [x, y, radius]
+
+obstacle_list_4 = [(5, 5, 1), (3, 6, 3), (3, 8, 3), (3, 10, 2), (7, 5, 2),
+                (9, 5, 2), (8, 10, 1), (12, 10, 3)]  # [x, y, radius]
+
+obstacle_list_5 = [(5, 5, 1), (3, 6, 3), (3, 8, 3), (3, 10, 2), (7, 5, 2),
+                (9, 5, 2), (8, 10, 1), (12, 10, 3), (10,7, 1)]  # [x, y, radius]
+
+obstacle_list = obstacle_list_4
 
 for (ox, oy, size) in obstacle_list:
     plot_circle(ox, oy, size)

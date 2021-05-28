@@ -17,7 +17,6 @@ import pdb
 
 show_animation = False
 
-# TODO: make rrt for efficient
 # TODO: take max_acc, and max_theta_dot into consideration
 
 #NOTE: expand_distance might be dependent on max_acc and max_theta_dot of body
@@ -35,7 +34,7 @@ class RRT():
             self.parent = None
             
     def __init__(self, body: Body, max_iter, goal_sample_rate, expand_dis, 
-                 path_resolution, bubbleDist):
+                 path_resolution, bubbleDist, dt):
         self.start = self.Node(body.start[0], body.start[1])
         self.end = self.Node(body.end[0], body.end[1])
         self.min_rand = 0
@@ -47,6 +46,7 @@ class RRT():
         self.obstacle_list = body.obs_list
         self.node_list = []
         self.bubbleDist = bubbleDist
+        #self.max_theta = body.max_theta_dot * dt
     
     def planning(self, animation=False):
         """
@@ -58,8 +58,6 @@ class RRT():
         for i in range(self.max_iter):
             rnd_node = self.get_random_node()
             
-            # NOTE: if doing state space, nearest_node_index might be difficult
-            
             nearest_ind = self.get_nearest_node_index(self.node_list, rnd_node)
             nearest_node = self.node_list[nearest_ind]
 
@@ -67,9 +65,11 @@ class RRT():
 
             # Note that this will check for collision along the entire path
             if self.check_collision(new_node, self.obstacle_list, self.bubbleDist):
+                _, ang = self.calc_distance_and_angle(nearest_node, new_node)
+                #if abs(ang) < self.max_theta:
                 self.node_list.append(new_node)
 
-            if animation and i % 5 == 0:
+            if animation:
                 self.draw_graph(rnd_node)
 
             if self.calc_dist_to_goal(self.node_list[-1].x,
@@ -77,12 +77,33 @@ class RRT():
                 final_node = self.steer(self.node_list[-1], self.end,
                                         self.expand_dis)
                 if self.check_collision(final_node, self.obstacle_list):
-                    return self.generate_final_course(len(self.node_list) - 1)
-
-            if animation and i % 5:
-                self.draw_graph(rnd_node)
+                    semi_final_path = self.generate_final_course(len(self.node_list) - 1)
+                    # going to refine the final path
+                    return self.clean_final_path(semi_final_path)
 
         return None  # cannot find path
+    
+    def clean_final_path(self, semi_final_path: list):
+        # Written by Sarah
+        # want to iterate through the paths and cut out nodes that aren't needed
+        # NOTE: since final node is not on path, cannot make last part of path 
+        # more efficient
+        final_path = []
+        i = 2
+        while i < len(semi_final_path):
+            prev = semi_final_path[i - 2]
+            curr = semi_final_path[i]
+            final_path.append(prev)
+            # see if prev and curr can be connected
+            # if yes then connect
+            new_node = self.steer(self.Node(prev[0], prev[1]), self.Node(curr[0], curr[1]), self.expand_dis)
+            if self.check_collision(new_node, self.obstacle_list, self.bubbleDist):
+                final_path.append(curr)
+                i  = i+3
+            else:
+                i += 1
+            
+        return final_path
 
     def steer(self, from_node, to_node, extend_length=float("inf")):
 
@@ -103,7 +124,6 @@ class RRT():
             new_node.path_x.append(new_node.x)
             new_node.path_y.append(new_node.y)
 
-        d, _ = self.calc_distance_and_angle(new_node, to_node)
         if d <= self.path_resolution:
             new_node.path_x.append(to_node.x)
             new_node.path_y.append(to_node.y)
