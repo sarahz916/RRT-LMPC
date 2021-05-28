@@ -77,7 +77,6 @@ class FTOCP(object):
         # Solve QP
         startTimer = datetime.datetime.now()
         
-        pdb.set_trace()
         G = self.G_in
         A = self.G_eq
         
@@ -120,7 +119,7 @@ class FTOCP(object):
         Mat   = linalg.block_diag(linalg.block_diag(*rep_a), self.Ff)
         Fxtot = np.vstack((np.zeros((self.Fx.shape[0], self.n*self.N)), Mat))
         bxtot = np.append(np.tile(np.squeeze(self.bx), self.N), self.bf)
-
+        
         rep_b = [self.Fu] * (self.N)
         Futot = linalg.block_diag(*rep_b)
         butot = np.tile(np.squeeze(self.bu), self.N)
@@ -141,7 +140,7 @@ class FTOCP(object):
         
         # Add 0 block for lambda
         w_in = np.hstack([w_in, np.zeros(self.k)])
-        
+                
         if self.printLevel >= 2:
             print("G_in: ")
             print(G_in.shape)
@@ -223,10 +222,10 @@ class FTOCP(object):
         G_eq = largeG
         
         # Modify E_eq, C_eq to account for lambda
-        E_eq = np.vstack([E_eq, np.zeros((self.k, E_eq.shape[1]))])
+        E_eq = np.vstack([E_eq, np.zeros((self.n + 1, E_eq.shape[1]))])
         #C_eq = np.vstack([C_eq.T, np.zeros((self.k,))]) #C_eq.shape is (4, ) 
-        C_eq = np.concatenate((C_eq, np.zeros((self.k,))), axis=0)
-        
+        C_eq = np.concatenate((C_eq, np.zeros((self.n + 1,))), axis=0)
+                
         if self.printLevel >= 2:
             print("G_eq: ")
             print(G_eq.shape)
@@ -338,7 +337,6 @@ class FTOCP(object):
         qp_l = hstack([l, b])
         qp_u = hstack([h, b])
         
-        pdb.set_trace()
         self.osqp = OSQP() #A has shape (437, 270) and l havs shape (272) 
         self.osqp.setup(P=P, q=q, A=qp_A, l=qp_l, u=qp_u, verbose=False, polish=True)
 

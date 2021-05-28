@@ -24,8 +24,7 @@ def main(j: int):
     obstacleList = [(5, 5, 1), (3, 6, 2), (3, 8, 2), (3, 10, 2), (7, 5, 2),
                     (9, 5, 2), (8, 10, 1)]  # [x, y, radius]
     # Set Initial parameters
-    body = Body(obstacleList,  start_state=(0, 0, 0, 0), end_state=(2, 15, 0, 0), max_grid = (20, 20))
-    
+    body = Body(obstacleList, start_state=(0, 0, 0, 0), end_state=(2, 15, 0, 0), max_grid = (20, 20))
     
     ### User-defined constants for LMPC ###
     goal = np.array(body.end)
@@ -37,7 +36,7 @@ def main(j: int):
     R  = 0.01*np.eye(d)
     Qf = 1000*np.eye(n)
     dt = 0.1
-    printLevel = 2
+    printLevel = 3
     width = 0.2
     amax = body.max_acc
     amin = -body.max_acc
@@ -81,9 +80,9 @@ def main(j: int):
                 pdb.set_trace()
         uTraj = demo[0]
         lmpcSolver.updateSSandValueFunction(xTraj, uTraj)
-        
+            
     # Pass in the N'th point of the last demonstrated trajectory
-    xTraj, uTraj = lmpcSolver.runTrajectory(xTraj[N])
+    xTraj, uTraj = lmpcSolver.runTrajectory(xTraj, uTraj)
     
     return demos
 

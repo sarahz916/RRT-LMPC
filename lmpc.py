@@ -54,17 +54,27 @@ class LMPC(object):
             ax.set_title('Predicted trajectory')
             ax.set_xlabel('$x_1$')
             ax.set_ylabel('$x_2$')
-            ax.set_xlim(-1,12)
-            ax.set_ylim(-1,10)
+            # ax.set_xlim(-1,12)
+            # ax.set_ylim(-1,10)
             ax.legend()
             
         for i in range(numIters):
             ftocp.solve(x0)
             
             if self.printLevel >= 2:
-                ax.plot(ftocp.xPred[:,0], ftocp.xPred[:,1], '--ob', label='SQP iter = ' + str(i))
-                ax.show()
-        
+                # Need to convert back to x,y
+                xyCoords = []
+                for state in ftocp.xPred:
+                    try:
+                        x,y = self.spline.calcXY(state[0], state[1])
+                    except:
+                        pdb.set_trace()
+                    xyCoords.append((x,y))
+                xyCoords = np.array(xyCoords)
+                ax.plot(xyCoords[:,0], xyCoords[:,1], '--ob', label='SQP iter = ' + str(i))
+                # ax.show()
+                pdb.set_trace()
+            
             # To update the linearization, use as uGuess the uPred from
             # previous iteration (will then also update xGuess internally)
             ftocp.uGuessUpdate() 
@@ -74,7 +84,8 @@ class LMPC(object):
                 
     # Run a full trajectory going from start to end of the spline using
     # closed-loop receding horizon updating
-    def runTrajectory(self, nthPoint, eps = 1, maxIter = 1e3):
+    # Takes in a previous (demonstration) trajectory
+    def runTrajectory(self, xDemo, uDemo, eps = 1, maxIter = 1e3):
         # Placeholders
         distLeft = np.inf
         xPred = []
@@ -93,10 +104,15 @@ class LMPC(object):
             # trajectory
             # Else, use the final state predicted by the last SQP run
             if count == 0:
-                target = nthPoint
+                target = xDemo[self.N]
+                # If this is the first iteration also set uGuess
+                # based on the first N steps of the demonstration trajectory
+                uGuess = []
+                for i in range(self.N):
+                    uGuess.append(uDemo[i])
             else:
                 target = xPred[-1]
-                
+            
             # 2. Determine terminal region
             # Select new terminalPoints and get corresponding valuePoints 
             # using nearest neighbors
@@ -105,11 +121,23 @@ class LMPC(object):
             terminalPoints = np.array([self.SS[ind] for ind in safeIndices]).T
             valuePoints = np.array([self.values[ind] for ind in safeIndices])
             
+            if self.printLevel >= 3:
+                # Visualize the safe set and target x,y
+                terminalXY = self.convertToXY(terminalPoints.T)
+                targetXY = self.spline.calcXY(target[0], target[1])
+                plt.figure();
+                plt.scatter(terminalXY[:,0], terminalXY[:,1], label='Terminal Points')
+                plt.scatter(targetXY[0], targetXY[1], label='Target')
+                plt.legend()
+                plt.title('Visualizing Safe Set Points')
+                plt.xlabel(r'$x_1$')
+                plt.ylabel(r'$x_2$')
+                            
             # 3. If this is not the first iteration, set uGuess using
             # one-offset from past SQP uPred as in HW2 problem 1 ftocp 
             # uGuessUpdate code
             # Else, leave uGuess as none
-            uGuess = None
+            # uGuess = None
             if count > 0:
                 uGuess = []
                 for i in range(self.N):
@@ -195,4 +223,14 @@ class LMPC(object):
         state_next = [s_next, y_next, v_next, theta_next]
 
         return state_next
-
+    
+    # Assume states is a list of states (or array where each row is a state)
+    def convertToXY(self, states):
+        xyStates = []
+        for state in states: 
+            try:    
+                x,y = self.spline.calcXY(state[0], state[1])
+            except:
+                pdb.set_trace()
+            xyStates.append(np.array([x, y, state[2], state[3]]))
+        return np.array(xyStates)
