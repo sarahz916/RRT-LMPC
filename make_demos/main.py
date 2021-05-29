@@ -34,7 +34,7 @@ def main(j: int):
     obstacleList = environments.obstacle_list_4
     # Set Initial parameters
     body = Body(obstacleList,  start_state=(0, 0, 0, 0), end_state=(15, 15, 0, 0), max_grid = (15, 15))
-    rrt = RRT(body, 1000, 50, 1, 0.01, 0.2, dt) # body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist
+    rrt = RRT(body, 1000, 50, 1, 0.01, 0.2) # body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist
     path = rrt.planning()
     if path is None:
         print("Cannot find path")

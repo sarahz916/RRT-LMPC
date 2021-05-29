@@ -194,6 +194,15 @@ class Spline2D:
         dx = self.sx.calcd(s)
         dy = self.sy.calcd(s)
         yaw = math.atan2(dy, dx)
+        if (dx == 0):
+            if dy > 0:
+                yaw = math.pi/2
+            elif dy < 0:
+                yaw = -math.pi/2
+        else:
+            yaw = math.atan(dy/dx)
+        if (dx < 0):
+            yaw = yaw + math.pi
         return yaw
     
     # Given s, compute d/ds gamma(s)
