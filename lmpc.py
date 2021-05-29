@@ -68,8 +68,8 @@ class LMPC(object):
             if self.printLevel >= 2:
                 # Need to convert back to x,y
                 xyCoords = []
-                for state in xDemo:
                 # for state in ftocp.xPred:
+                for state in ftocp.xPred:
                     try:
                         x,y = self.spline.calcXY(state[0], state[1])
                     except:

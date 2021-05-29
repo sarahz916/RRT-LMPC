@@ -104,7 +104,6 @@ class NLP(object):
 
 # Updated by Sarah for 159 project, Aaron modified so just Euler
 	def dynamics(self, x, u):
-		print('This got called')
 		# state x = [x,y, vx, vy]
 		v_next      = x[2] + self.dt * u[0]
 		theta_next  = x[3] + self.dt * u[1]
