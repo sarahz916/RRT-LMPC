@@ -6,7 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from ftocpLMPC import FTOCP
 from scipy import linalg
-from casadi import sin, cos
+# from casadi import sin, cos
+import math
 import pdb
 
 class LMPC(object):
@@ -62,6 +63,7 @@ class LMPC(object):
         for i, ut in enumerate(uGuess):
             xDemo.append(self.dynamics(xDemo[-1], ut))
         
+        pdb.set_trace()
         for i in range(numIters):
             ftocp.solve(x0)
             
@@ -69,7 +71,7 @@ class LMPC(object):
                 # Need to convert back to x,y
                 xyCoords = []
                 # for state in ftocp.xPred:
-                for state in ftocp.xPred:
+                for state in xDemo:
                     try:
                         x,y = self.spline.calcXY(state[0], state[1])
                     except:
@@ -231,8 +233,8 @@ class LMPC(object):
         # use Euler discretization
         gamma = self.spline.calc_yaw(x[0])
         curvature = self.spline.calc_curvature(x[0])
-        deltaS = x[2] * cos(x[3] - gamma) / (1 - gamma * curvature)
-        deltaY = x[2] * sin(x[3] - gamma)
+        deltaS = x[2] * math.cos(x[3] - gamma) / (1 - gamma * curvature)
+        deltaY = x[2] * math.sin(x[3] - gamma)
         s_next      = x[0] + self.dt * deltaS
         y_next      = x[1] + self.dt * deltaY
         v_next      = x[2] + self.dt * u[0]

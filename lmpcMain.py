@@ -80,7 +80,7 @@ def main(j: int):
     lmpcSolver = LMPC(N, K, Q, Qf, R, [], [], spline, dt, width, amax, amin, theta_dotMax, theta_dotMin, printLevel)    
     
     # Add all the trajectories
-    for demo in demos:
+    for k, demo in enumerate(demos):
         # Need to convert from x,y to s,y representation
         xTraj = np.copy(demo[1][1:]) # xTraj right now includes x(0) which remove
         for i,x in enumerate(xTraj):
@@ -91,45 +91,58 @@ def main(j: int):
             # backAgainX = np.array(spline.calcXY(xTraj[i][0], xTraj[i][1])) 
             # if np.linalg.norm(origX - backAgainX) > 0.1:
             #     pdb.set_trace()
-        uTraj = demo[0]
+        uTraj = np.copy(demo[0])
         lmpcSolver.updateSSandValueFunction(xTraj, uTraj)
         
-        # Compute the expected path using x-parameterized nonlinear dynamics
-        xExp = [demo[1][0]]
-        for i, ut in enumerate(uTraj):
-            xExp.append(xDynamics(xExp[-1], ut[0], ut[1], dt))
-        xExp = np.array(xExp)
-        
-        # Compute the expected path using s-parameterized nonlinear dynamics
-        
-        # Let's visualize the demos in both x and s representations and make sure
-        # they agree            
-        xyCoords = lmpcSolver.convertToXY(xTraj)
-        
-        splineLine = []
-        for s in np.linspace(0, spline.end, 1000, endpoint=False):
-            splineLine.append(spline.calc_position(s))
-        splineLine = np.array(splineLine)
-
-        plt.figure()
-        demoX = demo[1][1:]
-        plt.plot(demoX[:,0], demoX[:,1], '--og', label='Original Demo')
-        plt.plot(xyCoords[:,0], xyCoords[:,1], '--ob', label='Converted to S and Back')
-        # plt.plot(xExp[:,0], xExp[:,1], '--or', label='Predicted from uDemo')
-        plt.plot(splineLine[:,0], splineLine[:,1], '--oy', label='Spline')
-        plt.legend()
-        
-        plt.figure()
-        plt.plot(np.array(xTraj)[:,1])
-        plt.title('y component in s-space')
-        plt.xlabel('Iteration')
-        plt.ylabel('y')
-        plt.figure()
-        plt.plot(demo[0][:,1])
-        plt.title('ThetaDot against Iterations')
-        plt.xlabel('Iteration')
-        plt.ylabel('ThetaDot')
+        if k == 0:
+            # Compute the expected path using x-parameterized nonlinear dynamics
+            xExp = [demo[1][0]]
+            for i, ut in enumerate(uTraj):
+                xExp.append(xDynamics(xExp[-1], ut[0], ut[1], dt))
+            xExp = np.array(xExp)
+            
+            # Compute the expected path using s-parameterized nonlinear dynamics
+            x0 = np.copy(demo[1][0])
+            x0[0], x0[1] = spline.calcSY(x0[0], x0[1])
+            xSExp = [x0]
+            for i, ut in enumerate(uTraj):
+                try:
+                    xSExp.append(lmpcSolver.dynamics(xSExp[-1], ut))
+                except:
+                    pdb.set_trace()
+            xSExp = lmpcSolver.convertToXY(xSExp)
+            
+            # Let's visualize the demos in both x and s representations and make sure
+            # they agree            
+            xyCoords = lmpcSolver.convertToXY(xTraj)
+            
+            splineLine = []
+            for s in np.linspace(0, spline.end, 1000, endpoint=False):
+                splineLine.append(spline.calc_position(s))
+            splineLine = np.array(splineLine)
     
+            plt.figure()
+            demoX = demo[1][1:]
+            plt.plot(demoX[:,0], demoX[:,1], '--og', label='Original Demo')
+            plt.plot(xyCoords[:,0], xyCoords[:,1], '--ob', label='Converted to S and Back')
+            plt.plot(xExp[:,0], xExp[:,1], '--or', label='Predicted from control x')
+            plt.plot(xSExp[:,0], xSExp[:,1], '--ok', label='Predicted from control s')
+            plt.plot(splineLine[:,0], splineLine[:,1], '--oy', label='Spline')
+            plt.legend()
+            
+            plt.figure()
+            plt.plot(np.array(xTraj)[:,1])
+            plt.title('y component in s-space')
+            plt.xlabel('Iteration')
+            plt.ylabel('y')
+            plt.figure()
+            plt.plot(demo[0][:,1])
+            plt.title('ThetaDot against Iterations')
+            plt.xlabel('Iteration')
+            plt.ylabel('ThetaDot')
+    
+            pdb.set_trace()
+            
     # Pass in the N'th point of the last demonstrated trajectory
     xTraj, uTraj = lmpcSolver.runTrajectory(xTraj, uTraj)
     

@@ -10,7 +10,8 @@ from numpy import hstack, inf, ones
 from scipy.sparse import vstack
 from osqp import OSQP
 from dataclasses import dataclass, field
-from casadi import sin, cos, SX, vertcat, Function, jacobian
+# from casadi import sin, cos, SX, vertcat, Function, jacobian
+from math import sin, cos
 
 class FTOCP(object):
     """ Finite Time Optimal Control Problem (FTOCP)
