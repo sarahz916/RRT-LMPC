@@ -102,15 +102,18 @@ class NLP(object):
 		self.lbg_dyanmics = [0]*(n*self.N)
 		self.ubg_dyanmics = [0]*(n*self.N)
 
-# Updated by Sarah for 159 project
+# Updated by Sarah for 159 project, Aaron modified so just Euler
 	def dynamics(self, x, u):
+		print('This got called')
 		# state x = [x,y, vx, vy]
 		v_next      = x[2] + self.dt * u[0]
 		theta_next  = x[3] + self.dt * u[1]
-		avg_v       = (v_next + x[2])/2
-		avg_theta   = (theta_next + x[3])/2
-		x_next  = avg_v * self.dt * np.cos(avg_theta) + x[0]
-		y_next = avg_v * self.dt * np.sin(avg_theta) + x[1]
+		# avg_v       = (v_next + x[2])/2
+		# avg_theta   = (theta_next + x[3])/2
+		# x_next  = avg_v * self.dt * np.cos(avg_theta) + x[0]
+		# y_next = avg_v * self.dt * np.sin(avg_theta) + x[1]
+		x_next  = x[2] * self.dt * np.cos(x[3]) + x[0]
+		y_next = x[2] * self.dt * np.sin(x[3]) + x[1]
 
 		state_next = [x_next, y_next, v_next, theta_next]
 
