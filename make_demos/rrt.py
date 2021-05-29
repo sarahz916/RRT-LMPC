@@ -81,8 +81,7 @@ class RRT():
                 if self.check_collision(final_node, self.obstacle_list):
                     semi_final_path = self.generate_final_course(len(self.node_list) - 1)
                     # going to refine the final path
-                    #return self.clean_final_path(semi_final_path)
-                    return semi_final_path
+                    return self.clean_final_path(semi_final_path)
 
         return None  # cannot find path
     
@@ -97,6 +96,7 @@ class RRT():
             prev = semi_final_path[i]
             final_path.append(prev)
             if i + 2 >= len(semi_final_path):
+                i += 1
                 continue
             curr = semi_final_path[i + 2] # need to make sure 
             # see if prev and curr can be connected
