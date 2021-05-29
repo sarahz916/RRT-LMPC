@@ -80,7 +80,9 @@ def main(j: int):
                 pdb.set_trace()
         uTraj = demo[0]
         lmpcSolver.updateSSandValueFunction(xTraj, uTraj)
-            
+        
+    pdb.set_trace()
+    
     # Pass in the N'th point of the last demonstrated trajectory
     xTraj, uTraj = lmpcSolver.runTrajectory(xTraj, uTraj)
     

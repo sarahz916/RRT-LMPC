@@ -281,14 +281,15 @@ class FTOCP(object):
         kPrime = self.spline.calc_curvaturePrime(s)
         gammaPrime = self.spline.calc_yawPrime(s)
         # d/ds [ cos(theta - gamm) / (1- gamma K)]
-        temp = sin(theta - gamma) * gammaPrime * (1 - gamma * k) + \
-                cos(theta - gamma) * (gammaPrime * k + kPrime * gamma)
+        num = sin(theta - gamma) * gammaPrime * (1 - gamma * k) + \
+            cos(theta - gamma) * (gammaPrime * k + kPrime * gamma)
+        den = (1 - gamma * k)**2
         
         A = np.zeros((4,4))
         
         # s derivatives
-        A[0,0] = 1 + v * self.dt * temp
-        A[1,0] = - v * self.dt * cos(theta - gamma) * k 
+        A[0,0] = 1 + v * self.dt * num/den
+        A[1,0] = - v * self.dt * cos(theta - gamma) * gammaPrime 
         A[2,0] = 0
         A[3,0] = 0
         
@@ -305,8 +306,8 @@ class FTOCP(object):
         A[3,2] = 0
         
         # theta derivatives
-        A[0,3] = - self.dt * v * sin(theta - gamma)
-        A[1,3] = - self.dt * v * cos(theta - gamma)
+        A[0,3] = - self.dt * v * sin(theta - gamma) / (1 - gamma * k)
+        A[1,3] = self.dt * v * cos(theta - gamma)
         A[2,3] = 0
         A[3,3] = 1
         
@@ -314,11 +315,9 @@ class FTOCP(object):
         
         B[2,0] = self.dt
         B[3,1] = self.dt
-
+            
         C = self.dynamics(x, u) - A @ x - B @ u
             
-        #pdb.set_trace()
-        
         return A, B, C
     
     def osqp_solve_qp(self, P, q, G= None, h=None, A=None, b=None, initvals=None):
