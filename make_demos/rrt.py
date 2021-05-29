@@ -81,7 +81,8 @@ class RRT():
                 if self.check_collision(final_node, self.obstacle_list):
                     semi_final_path = self.generate_final_course(len(self.node_list) - 1)
                     # going to refine the final path
-                    return self.clean_final_path(semi_final_path)
+                    #return self.clean_final_path(semi_final_path)
+                    return semi_final_path
 
         return None  # cannot find path
     
@@ -93,9 +94,11 @@ class RRT():
         final_path = []
         i = 2
         while i < len(semi_final_path):
-            prev = semi_final_path[i - 2]
-            curr = semi_final_path[i]
+            prev = semi_final_path[i]
             final_path.append(prev)
+            if i + 2 >= len(semi_final_path):
+                continue
+            curr = semi_final_path[i + 2] # need to make sure 
             # see if prev and curr can be connected
             # if yes then connect
             new_node = self.steer(self.Node(prev[0], prev[1]), self.Node(curr[0], curr[1]), self.expand_dis)
@@ -141,8 +144,8 @@ class RRT():
     # add_inter = False
     def generate_final_course(self, goal_ind):
         # Aaron changed so don't add the goal index
-        path = []
-        # path = [(self.end.x, self.end.y)]
+        # path = []
+        path = [(self.end.x, self.end.y)]
         node = self.node_list[goal_ind]
         while node.parent is not None:
             # if add_inter:

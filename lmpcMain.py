@@ -8,6 +8,7 @@ import numpy as np
 from cubic_spline_planner import fit_path, Spline2D
 from lmpc import LMPC
 import pdb
+import environments
 
 def show_path_and_demos(path, demos, j):
     plt.plot([x for (x, y) in path], [y for (x, y) in path], '-r')
@@ -97,4 +98,4 @@ def main(j: int):
     return demos
 
 if __name__ == '__main__':
-    demos = main(10)
+    demos = main(1)
