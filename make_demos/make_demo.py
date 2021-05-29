@@ -17,13 +17,17 @@ from numpy import linalg as la
 # TODO: Check that pid does not run into obstacles
 # TODO: Make sure robot stays within workspace
 
+# Aaron modified so is just Euler which is used later
 def next_state(curr_state, acc, theta_dot, dt):
     new_ang = theta_dot * dt + curr_state[3]
     new_vel = acc*dt + curr_state[2]
-    avg_vel = (new_vel + curr_state[2])/2
-    avg_theta = (new_ang + curr_state[3])/2
-    new_x = avg_vel * dt * math.cos(avg_theta) + curr_state[0]
-    new_y = avg_vel * dt * math.sin(avg_theta) + curr_state[1]
+    # avg_vel = (new_vel + curr_state[2])/2
+    # avg_theta = (new_ang + curr_state[3])/2
+    # new_x = avg_vel * dt * math.cos(avg_theta) + curr_state[0]
+    # new_y = avg_vel * dt * math.sin(avg_theta) + curr_state[1]
+    new_x = curr_state[2] * dt * math.cos(curr_state[3]) + curr_state[0]
+    new_y = curr_state[2] * dt * math.sin(curr_state[3]) + curr_state[1]
+    
     #pdb.set_trace()
     return [new_x, new_y, new_vel, new_ang]
 

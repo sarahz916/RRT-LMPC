@@ -54,17 +54,20 @@ class LMPC(object):
             ax.set_title('Predicted trajectory')
             ax.set_xlabel('$x_1$')
             ax.set_ylabel('$x_2$')
-            # ax.set_xlim(-1,12)
-            # ax.set_ylim(-1,10)
-            ax.legend()
-            
+                
+        # Let's see what would happen if used uGuess to propogate solution
+        xDemo = [x0]
+        for i, ut in enumerate(uGuess):
+            xDemo.append(self.dynamics(xDemo[-1], ut))
+        
         for i in range(numIters):
             ftocp.solve(x0)
             
             if self.printLevel >= 2:
                 # Need to convert back to x,y
                 xyCoords = []
-                for state in ftocp.xPred:
+                for state in xDemo:
+                # for state in ftocp.xPred:
                     try:
                         x,y = self.spline.calcXY(state[0], state[1])
                     except:
@@ -72,7 +75,12 @@ class LMPC(object):
                     xyCoords.append((x,y))
                 xyCoords = np.array(xyCoords)
                 ax.plot(xyCoords[:,0], xyCoords[:,1], '--ob', label='SQP iter = ' + str(i))
-                # ax.show()
+                
+                # Visualize the safe set and target x,y
+                terminalXY = self.convertToXY(terminalPoints.T)
+                ax.scatter(terminalXY[:,0], terminalXY[:,1], label='Terminal Points')
+                ax.legend()
+                
                 pdb.set_trace()
             
             # To update the linearization, use as uGuess the uPred from
@@ -121,18 +129,26 @@ class LMPC(object):
             terminalPoints = np.array([self.SS[ind] for ind in safeIndices]).T
             valuePoints = np.array([self.values[ind] for ind in safeIndices])
             
-            if self.printLevel >= 3:
+            if self.printLevel >= 2:
                 # Visualize the safe set and target x,y
                 terminalXY = self.convertToXY(terminalPoints.T)
                 targetXY = self.spline.calcXY(target[0], target[1])
-                plt.figure();
+                
+                # Visualize the full set of demo points
+                demoXY = self.convertToXY(xDemo)
+                
+                plt.figure()
+                plt.scatter(demoXY[:,0], demoXY[:,1], label='Full Demo')
                 plt.scatter(terminalXY[:,0], terminalXY[:,1], label='Terminal Points')
                 plt.scatter(targetXY[0], targetXY[1], label='Target')
+                
                 plt.legend()
                 plt.title('Visualizing Safe Set Points')
                 plt.xlabel(r'$x_1$')
                 plt.ylabel(r'$x_2$')
-                            
+                plt.xlim([0,20])
+                plt.ylim([0,20])
+                
             # 3. If this is not the first iteration, set uGuess using
             # one-offset from past SQP uPred as in HW2 problem 1 ftocp 
             # uGuessUpdate code

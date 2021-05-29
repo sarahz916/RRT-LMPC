@@ -36,7 +36,7 @@ def main(j: int):
     R  = 0.01*np.eye(d)
     Qf = 1000*np.eye(n)
     dt = 0.1
-    printLevel = 3
+    printLevel = 2
     width = 0.2
     amax = body.max_acc
     amin = -body.max_acc
@@ -80,9 +80,7 @@ def main(j: int):
                 pdb.set_trace()
         uTraj = demo[0]
         lmpcSolver.updateSSandValueFunction(xTraj, uTraj)
-        
-    pdb.set_trace()
-    
+            
     # Pass in the N'th point of the last demonstrated trajectory
     xTraj, uTraj = lmpcSolver.runTrajectory(xTraj, uTraj)
     
