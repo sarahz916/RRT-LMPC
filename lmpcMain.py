@@ -73,14 +73,24 @@ def main(j: int):
     # Add all the trajectories
     for demo in demos:
         # Need to convert from x,y to s,y representation
-        xTraj = demo[1][1:] # xTraj right now includes x(0) which remove
+        xTraj = np.copy(demo[1][1:]) # xTraj right now includes x(0) which remove
         for i,x in enumerate(xTraj):
             xTraj[i][:2] = spline.calcSY(xTraj[i][0], xTraj[i][1])
             if xTraj[i][0] < 0:
                 pdb.set_trace()
         uTraj = demo[0]
         lmpcSolver.updateSSandValueFunction(xTraj, uTraj)
-            
+        
+        # Let's visualize the demos in both x and s representations and make sure
+        # they agree            
+        xyCoords = lmpcSolver.convertToXY(xTraj)
+        
+        plt.figure()
+        demoX = demo[1][1:]
+        plt.plot(demoX[:,0], demoX[:,1], '--og', label='Original Demo')
+        plt.plot(xyCoords[:,0], xyCoords[:,1], '--ob', label='Converted to S and Back')
+        plt.legend()
+    
     # Pass in the N'th point of the last demonstrated trajectory
     xTraj, uTraj = lmpcSolver.runTrajectory(xTraj, uTraj)
     

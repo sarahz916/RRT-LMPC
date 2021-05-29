@@ -55,6 +55,8 @@ class LMPC(object):
             ax.set_xlabel('$x_1$')
             ax.set_ylabel('$x_2$')
                 
+        # TODO: TEMPORARY
+        # SHOULD PUT BACK TO using ftocp.xPred instead of xDemo
         # Let's see what would happen if used uGuess to propogate solution
         xDemo = [x0]
         for i, ut in enumerate(uGuess):
