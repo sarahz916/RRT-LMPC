@@ -81,7 +81,7 @@ def main(j: int):
     
     lmpcSolver = LMPC(N, K, Q, Qf, R, [], [], spline, dt, width, amax, amin, theta_dotMax, theta_dotMin, printLevel)    
     
-    # plt.figure()
+    plt.figure()
            
     # splineLine = []
     # for s in np.linspace(0, spline.end, 1000, endpoint=False):
@@ -92,10 +92,12 @@ def main(j: int):
     # plt.legend()        
     
     # for i in range(numDemos):
-    #     xDemo, uDemo = lmpcSolver.createDemo([0.01, 1, 0.5, 0])
+    #     xDemo, uDemo = lmpcSolver.createDemo([1, 0.2, 0.2, 0], 1)
         
     #     xyCoords = lmpcSolver.convertToXY(xDemo)
     #     plt.plot(xyCoords[:,0], xyCoords[:,1], '--o', label='Demo ' + str(i))
+    
+    #     pdb.set_trace()
     
     # Add all the trajectories
     for k, demo in enumerate(demos):
@@ -150,9 +152,9 @@ def main(j: int):
             plt.figure()
             demoX = demo[1][1:]
             plt.plot(demoX[:,0], demoX[:,1], '--og', label='Original Demo')
-            plt.plot(xyCoords[:,0], xyCoords[:,1], '--ob', label='Converted to S and Back')
-            plt.plot(xExp[:,0], xExp[:,1], '--or', label='Predicted from control x')
-            plt.plot(xSExp[:,0], xSExp[:,1], '--ok', label='Predicted from control s')
+            # plt.plot(xyCoords[:,0], xyCoords[:,1], '--ob', label='Converted to S and Back')
+            # plt.plot(xExp[:,0], xExp[:,1], '--or', label='Predicted from control x')
+            # plt.plot(xSExp[:,0], xSExp[:,1], '--ok', label='Predicted from control s')
             plt.plot(splineLine[:,0], splineLine[:,1], '--oy', label='Spline')
             plt.legend()
             

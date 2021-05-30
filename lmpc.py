@@ -85,6 +85,11 @@ class LMPC(object):
                         pdb.set_trace()
                     xyCoords.append((x,y))
                 xyCoords = np.array(xyCoords)
+                
+                xTrue = [x0]
+                for j, ut in enumerate(ftocp.uPred):
+                    xDemo.append(self.dynamics(xTrue[-1], ut))
+                
                 if i == 0:
                     color='r'
                 else:
@@ -286,7 +291,7 @@ class LMPC(object):
     # target velocity will interpolate between cruise_velocity and start
     # and end goal velocity while s is within rampLength fraction of start/end
     # Kvals controls proportionality constants of the controller
-    def createDemo(self, Kvals, cruise_velocity=1, rampLength = 0.05, ds=0.1, eps = 1, maxIter=1e3):
+    def createDemo(self, Kvals, cruise_velocity=1, rampLength = 0.25, ds=0.1, eps = 0.01, maxIter=1e3):
         # nlp = NLP(overallN, self.Q, self.R, self.Qf, self.goal, self.dt, self.bx, self.bu, self.spline, self.printLevel)
         # nlp.solve(self.start)
         # return nlp.xPred, nlp.uPred, nlp.feasible
@@ -294,7 +299,7 @@ class LMPC(object):
         # sVals = list(np.arange(0, self.spline.end, ds))
         
         # Placeholders
-        distLeft = np.inf
+        distLeft = 1
         xPred = []
         uPred = []
         
@@ -329,16 +334,19 @@ class LMPC(object):
             except:
                 print('Error in yaw')
                 pdb.set_trace()
-            fractionDone = currS / self.spline.end
+            # fractionDone = currS / self.spline.end
 
-            if fractionDone < rampLength:
-                alpha = fractionDone / rampLength
-                vTarget = self.start[2] * alpha + (1-alpha) * cruise_velocity
-            elif fractionDone > 1 - rampLength:
-                alpha = (1-fractionDone) / rampLength
-                vTarget = self.goal[2] * alpha + (1-alpha) * cruise_velocity
-            else:
-                vTarget = cruise_velocity
+            # if fractionDone <= rampLength:
+            #     alpha = max(0.1, fractionDone / rampLength)
+            #     vTarget = self.start[2] * (1-alpha) + alpha * cruise_velocity
+            # elif fractionDone >= 1 - rampLength:
+            #     alpha = (1-fractionDone) / rampLength
+            #     vTarget = self.goal[2] * (1-alpha) + alpha * cruise_velocity
+            # else:
+            #     vTarget = cruise_velocity
+            
+            # Add a slight vertex offset left
+            vTarget = - cruise_velocity / (self.spline.end / 2)**2 * (currS - self.spline.end/2 + 1e-3 * self.spline.end)**2 + cruise_velocity
             
             a = Kvals[0] * (vTarget - currV) + Kvals[3] * np.abs(currY)
             thetaDot = Kvals[1] * (thetaTarget - currTheta) + Kvals[2] * (-currY)
@@ -352,9 +360,8 @@ class LMPC(object):
             xTraj.append(xNext)
             uTraj.append(u)
             
-            # 7. Compute the new distance to goal and update count
-            deltaX = xNext - self.goal
-            distLeft = deltaX.T @ self.Q @ deltaX
+            distLeft = 1 - currS / self.spline.end
+            
             count += 1
             x_1, x_2 = self.spline.calcXY(currS, currY)
             ax.scatter(x_1, x_2, c='r', s=100)
@@ -362,7 +369,7 @@ class LMPC(object):
             ax3.scatter(count, a)
             ax4.scatter(count, currY)
             ax5.scatter(count, self.spline.calc_curvature(currS))
-            if count % 100 == 0:                            
+            if count % 500 == 0:                            
                 ax.set_title('Count = ' + str(count))
                 ax2.set_title('ThetaDot ' + str(count))
                 ax3.set_title('a ' + str(count))

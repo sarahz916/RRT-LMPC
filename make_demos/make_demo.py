@@ -62,7 +62,7 @@ def calc_angle(curr_pt, next_pt):
 def nlp_to_end(body, curr_state,dt):
     x0 = np.array(curr_state)
     goal = np.array(body.end)
-    N  = 40; n = 4; d = 2;
+    N  = 20; n = 4; d = 2;
     Q  = 1*np.eye(n)
     R  = 1*np.eye(d)
     Qf = 1000*np.eye(n)
@@ -88,7 +88,7 @@ def make_demo(body: Body, org_path: list, dt, target_velocity = 1, tol = .0001):
     states = []
     inputs = []
     states.append(body.start)
-    while len(path) > 5:
+    while len(path) > 150: # Aaron made longer
         curr_pt = (states[-1][0], states[-1][1])
         curr_state = states[-1]
         if dist(curr_pt, next_pt) < dt * curr_state[2]: #is within a time step
