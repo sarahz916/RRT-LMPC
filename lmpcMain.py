@@ -67,10 +67,10 @@ def main(j: int):
         spline = Spline2D(path[:,0], path[:,1])
                 
         # Need to create list of states for path
-        fitted_path = fit_path(path, ds = 0.1)
+        fitted_path = fit_path(path, ds = 0.01)
         demos = []
         for i in range(j):
-            inputs, states, f = make_demo(body, fitted_path, .1)
+            inputs, states, f = make_demo(body, fitted_path, dt)
             if f == 1:
                 demos.append([inputs, states])
         # Draw final path
@@ -102,15 +102,22 @@ def main(j: int):
             xExp = np.array(xExp)
             
             # Compute the expected path using s-parameterized nonlinear dynamics
-            x0 = np.copy(demo[1][0])
-            x0[0], x0[1] = spline.calcSY(x0[0], x0[1])
-            xSExp = [x0]
-            for i, ut in enumerate(uTraj):
-                try:
-                    xSExp.append(lmpcSolver.dynamics(xSExp[-1], ut))
-                except:
-                    pdb.set_trace()
-            xSExp = lmpcSolver.convertToXY(xSExp)
+            # x0 = np.copy(demo[1][0])
+            # x0[0], x0[1] = spline.calcSY(x0[0], x0[1])
+            # xSExp = [x0]
+            # for i, ut in enumerate(uTraj):
+            #     print('i = ' + str(i))
+            #     print('ut = ', ut)
+            #     try:
+            #         xNext = np.array(lmpcSolver.dynamics(xSExp[-1], ut))
+            #         temp = np.copy(xNext)
+            #         temp[0], temp[1] = spline.calcXY(temp[0], temp[1])
+            #         xSExp.append(xNext)
+            #         if i < len(uTraj)-1 and np.linalg.norm(temp - xExp[i+1]) > 1e-2:
+            #              pdb.set_trace()
+            #     except:
+            #         pdb.set_trace()
+            # xSExp = lmpcSolver.convertToXY(xSExp)
             
             # Let's visualize the demos in both x and s representations and make sure
             # they agree            
@@ -126,7 +133,7 @@ def main(j: int):
             plt.plot(demoX[:,0], demoX[:,1], '--og', label='Original Demo')
             plt.plot(xyCoords[:,0], xyCoords[:,1], '--ob', label='Converted to S and Back')
             plt.plot(xExp[:,0], xExp[:,1], '--or', label='Predicted from control x')
-            plt.plot(xSExp[:,0], xSExp[:,1], '--ok', label='Predicted from control s')
+            # plt.plot(xSExp[:,0], xSExp[:,1], '--ok', label='Predicted from control s')
             plt.plot(splineLine[:,0], splineLine[:,1], '--oy', label='Spline')
             plt.legend()
             
@@ -141,7 +148,8 @@ def main(j: int):
             plt.xlabel('Iteration')
             plt.ylabel('ThetaDot')
     
-            pdb.set_trace()
+            print('Finished')
+            # pdb.set_trace()
             
     # Pass in the N'th point of the last demonstrated trajectory
     xTraj, uTraj = lmpcSolver.runTrajectory(xTraj, uTraj)

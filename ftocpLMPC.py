@@ -337,7 +337,7 @@ class FTOCP(object):
         qp_l = hstack([l, b])
         qp_u = hstack([h, b])
         
-        self.osqp = OSQP() #A has shape (437, 270) and l havs shape (272) 
+        self.osqp = OSQP() 
         self.osqp.setup(P=P, q=q, A=qp_A, l=qp_l, u=qp_u, verbose=False, polish=True)
 
         if initvals is not None:

@@ -24,8 +24,8 @@ class LMPC(object):
         self.R = R
         self.SS = SS
         self.dt = dt
-        self.Fx = np.array([[0, 1, 0, 0],[0, -1, 0, 0]])
-        self.bx = np.array([width, width])
+        self.Fx = np.array([[1,0,0,0],[-1,0,0,0],[0, 1, 0, 0],[0, -1, 0, 0],[0,0,-1,0]])
+        self.bx = np.array([spline.end, 0, width, width, 0])
         self.Fu = np.vstack([np.eye(2), -np.eye(2)])
         self.bu = np.array([amax, theta_dotMax, -amin, -theta_dotMin])
         self.spline = spline
@@ -63,18 +63,20 @@ class LMPC(object):
         for i, ut in enumerate(uGuess):
             xDemo.append(self.dynamics(xDemo[-1], ut))
         
-        pdb.set_trace()
         for i in range(numIters):
             ftocp.solve(x0)
             
             if self.printLevel >= 2:
                 # Need to convert back to x,y
                 xyCoords = []
-                # for state in ftocp.xPred:
+                # for j, state in enumerate(ftocp.xPred):
                 for state in xDemo:
                     try:
                         x,y = self.spline.calcXY(state[0], state[1])
                     except:
+                        print('Error')
+                        if state[0] >= 1:
+                            continue
                         pdb.set_trace()
                     xyCoords.append((x,y))
                 xyCoords = np.array(xyCoords)
