@@ -36,6 +36,7 @@ desired
         dx[i] = 0.0
     return jac.transpose()
 
+# Revised dynamics
 def combinedDynamics(x, dt, spline):
     # state = [s, y, v, theta]
     # input = [acc, theta_dot]
@@ -45,7 +46,7 @@ def combinedDynamics(x, dt, spline):
         curvature = spline.calc_curvature(x[0])
     except:
         pdb.set_trace()
-    deltaS = x[2] * cos(x[3] - gamma) / (1 - gamma * curvature)
+    deltaS = x[2] * cos(x[3] - gamma) / (1 - x[1] * curvature)
     deltaY = x[2] * sin(x[3] - gamma)
     s_next      = x[0] + dt * deltaS
     y_next      = x[1] + dt * deltaY

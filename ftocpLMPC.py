@@ -13,6 +13,37 @@ from dataclasses import dataclass, field
 # from casadi import sin, cos, SX, vertcat, Function, jacobian
 from math import sin, cos
 
+_epsilon = np.sqrt(np.finfo(float).eps)
+
+def approx_jacobian(x, func, epsilon, *args):
+    """Approximate the Jacobian matrix of callable function func
+
+       * Parameters
+         x       - The state vector at which the Jacobian matrix is
+desired
+         func    - A vector-valued function of the form f(x,*args)
+         epsilon - The peturbation used to determine the partial derivatives
+         *args   - Additional arguments passed to func
+
+       * Returns
+         An array of dimensions (lenf, lenx) where lenf is the length
+         of the outputs of func, and lenx is the number of
+
+       * Notes
+         The approximation is done using forward differences
+
+    """
+    x0 = np.asfarray(x)
+    f0 = func(*((x0,)+args))
+    jac = np.zeros([len(x0),len(f0)])
+    dx = np.zeros(len(x0))
+    for i in range(len(x0)):
+        dx[i] = epsilon
+        allArgs = (x0+dx,)+args
+        jac[i] = (np.array(func(*allArgs)) - np.array(f0))/epsilon
+        dx[i] = 0.0
+    return jac.transpose()
+
 class FTOCP(object):
     """ Finite Time Optimal Control Problem (FTOCP)
     Methods:
@@ -98,11 +129,17 @@ class FTOCP(object):
         for i in range(0, self.N):
             self.uGuess[i] = uPred[i]
         
-    def unpackSolution(self, x0):
+    # Potentially round s-values that are negative but close to 0 to 0 and 
+    # similarly for v-values
+    def unpackSolution(self, x0, roundIt = True):
         # Extract predicted state and predicted input trajectories
         self.xPred = np.vstack((x0, np.reshape((self.Solution[np.arange(self.n*(self.N))]),(self.N,self.n))))
         self.uPred = np.reshape((self.Solution[self.n*(self.N)+np.arange(self.d*self.N)]),(self.N, self.d))
-
+        
+        if roundIt:
+            print('Called roundIt')
+            self.xPred[np.where((self.xPred[:,0] < 0) * (np.abs(self.xPred[:,0]) < 1e-5)),0] = 0 
+            self.xPred[np.where((self.xPred[:,2] < 0) * (np.abs(self.xPred[:,2]) < 1e-5)),2] = 0
         if self.printLevel >= 2:
             print("Predicted State Trajectory: ")
             print(self.xPred)
@@ -273,53 +310,62 @@ class FTOCP(object):
     #     return A_linearized, B_linearized, C_linearized
 
     def buildLinearizedMatrices(self, x, u):
-        s = x[0]
-        y = x[1]
-        v = x[2]
-        theta = x[3]
-        gamma = self.spline.calc_yaw(s)
-        k = self.spline.calc_curvature(s)
-        kPrime = self.spline.calc_curvaturePrime(s)
-        gammaPrime = self.spline.calc_yawPrime(s)
-        # d/ds [ cos(theta - gamm) / (1- gamma K)]
-        num = sin(theta - gamma) * gammaPrime * (1 - gamma * k) + \
-            cos(theta - gamma) * (gammaPrime * k + kPrime * gamma)
-        den = (1 - gamma * k)**2
+        # s = x[0]
+        # y = x[1]
+        # v = x[2]
+        # theta = x[3]
+        # gamma = self.spline.calc_yaw(s)
+        # k = self.spline.calc_curvature(s)
+        # kPrime = self.spline.calc_curvaturePrime(s)
+        # gammaPrime = self.spline.calc_yawPrime(s)
+        # # d/ds [ cos(theta - gamm) / (1- gamma K)]
+        # num = sin(theta - gamma) * gammaPrime * (1 - gamma * k) + \
+        #     cos(theta - gamma) * (gammaPrime * k + kPrime * gamma)
+        # den = (1 - gamma * k)**2
         
-        A = np.zeros((4,4))
+        # A = np.zeros((4,4))
         
-        # s derivatives
-        A[0,0] = 1 + v * self.dt * num/den
-        A[1,0] = - v * self.dt * cos(theta - gamma) * gammaPrime 
-        A[2,0] = 0
-        A[3,0] = 0
+        # # s derivatives
+        # A[0,0] = 1 + v * self.dt * num/den
+        # A[1,0] = - v * self.dt * cos(theta - gamma) * gammaPrime 
+        # A[2,0] = 0
+        # A[3,0] = 0
         
-        # y derivatives
-        A[0,1] = 0
-        A[1,1] = 1
-        A[2,1] = 0
-        A[3,1] = 0
+        # # y derivatives
+        # A[0,1] = 0
+        # A[1,1] = 1
+        # A[2,1] = 0
+        # A[3,1] = 0
         
-        # v derivatives
-        A[0,2] = self.dt * cos(theta - gamma) / (1-gamma * k)
-        A[1,2] = self.dt * sin(theta - gamma)
-        A[2,2] = 1
-        A[3,2] = 0
+        # # v derivatives
+        # A[0,2] = self.dt * cos(theta - gamma) / (1-gamma * k)
+        # A[1,2] = self.dt * sin(theta - gamma)
+        # A[2,2] = 1
+        # A[3,2] = 0
         
-        # theta derivatives
-        A[0,3] = - self.dt * v * sin(theta - gamma) / (1 - gamma * k)
-        A[1,3] = self.dt * v * cos(theta - gamma)
-        A[2,3] = 0
-        A[3,3] = 1
+        # # theta derivatives
+        # A[0,3] = - self.dt * v * sin(theta - gamma) / (1 - gamma * k)
+        # A[1,3] = self.dt * v * cos(theta - gamma)
+        # A[2,3] = 0
+        # A[3,3] = 1
         
-        B = np.zeros((4,2))
+        # B = np.zeros((4,2))
         
-        B[2,0] = self.dt
-        B[3,1] = self.dt
+        # B[2,0] = self.dt
+        # B[3,1] = self.dt
             
-        C = self.dynamics(x, u) - A @ x - B @ u
+        # C = self.dynamics(x, u) - A @ x - B @ u
             
-        return A, B, C
+        # return A, B, C
+                                
+        merged = np.array(list(x) + list(u))
+        numJ = approx_jacobian(merged, lambda x: self.dynamics(x[:4], x[4:]), _epsilon)
+        
+        numA = numJ[:,:4]
+        numB = numJ[:, 4:]
+        numC = self.dynamics(x, u) - numA @ x - numB @ u
+            
+        return numA, numB, numC
     
     def osqp_solve_qp(self, P, q, G= None, h=None, A=None, b=None, initvals=None):
         """ 
@@ -351,22 +397,54 @@ class FTOCP(object):
 
         self.Solution = res.x
 
-    def dynamics(self, x, u):
-        # state = [s, y, v, theta]
-        # input = [acc, theta_dot]
-        # use Euler discretization
-        try:
+    # flag=1 to do dynamics via x
+    def dynamics(self, x, u, flag=1):
+        if flag:
+            curr_state = np.copy(x)
+            # Convert to (x,y)
+            curr_state[0], curr_state[1] = self.spline.calcXY(x[0],x[1])
+            acc = u[0]
+            theta_dot = u[1]
+            new_ang = theta_dot * self.dt + curr_state[3]
+            new_vel = acc*self.dt + curr_state[2]
+            new_x = curr_state[2] * self.dt * cos(curr_state[3]) + curr_state[0]
+            new_y = curr_state[2] * self.dt * sin(curr_state[3]) + curr_state[1]
+            # Convert back to (s,ey)
+            new_s, new_ey = self.spline.calcSY(new_x, new_y)
+            return [new_s, new_ey, new_vel, new_ang]
+                
+        else:
+            # state = [s, y, v, theta]
+            # input = [acc, theta_dot]
+            # use Euler discretization
             gamma = self.spline.calc_yaw(x[0])
             curvature = self.spline.calc_curvature(x[0])
-        except:
-            pdb.set_trace()
-        deltaS = x[2] * cos(x[3] - gamma) / (1 - gamma * curvature)
-        deltaY = x[2] * sin(x[3] - gamma)
-        s_next      = x[0] + self.dt * deltaS
-        y_next      = x[1] + self.dt * deltaY
-        v_next      = x[2] + self.dt * u[0]
-        theta_next  = x[3] + self.dt * u[1]
+            deltaS = x[2] * cos(x[3] - gamma) / (1 - x[1] * curvature)
+            deltaY = x[2] * sin(x[3] - gamma)
+            s_next      = x[0] + self.dt * deltaS
+            y_next      = x[1] + self.dt * deltaY
+            v_next      = x[2] + self.dt * u[0]
+            theta_next  = x[3] + self.dt * u[1]
+            state_next = [s_next, y_next, v_next, theta_next]
+            return state_next
 
-        state_next = [s_next, y_next, v_next, theta_next]
 
-        return state_next
+    # def dynamics(self, x, u):
+    #     # state = [s, y, v, theta]
+    #     # input = [acc, theta_dot]
+    #     # use Euler discretization
+    #     try:
+    #         gamma = self.spline.calc_yaw(x[0])
+    #         curvature = self.spline.calc_curvature(x[0])
+    #     except:
+    #         pdb.set_trace()
+    #     deltaS = x[2] * cos(x[3] - gamma) / (1 - x[1] * curvature)
+    #     deltaY = x[2] * sin(x[3] - gamma)
+    #     s_next      = x[0] + self.dt * deltaS
+    #     y_next      = x[1] + self.dt * deltaY
+    #     v_next      = x[2] + self.dt * u[0]
+    #     theta_next  = x[3] + self.dt * u[1]
+
+    #     state_next = [s_next, y_next, v_next, theta_next]
+
+    #     return state_next

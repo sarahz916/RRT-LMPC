@@ -37,7 +37,7 @@ if __name__ == '__main__':
     xDemo = np.load('xDemo.npy')
     uDemo = np.load('uDemo.npy')
     
-    dt = 1e-4
+    dt = 0.1
     
     with open('spline.pkl', 'rb') as input:
         spline = pickle.load(input)

@@ -9,6 +9,7 @@ from scipy import linalg
 # from casadi import sin, cos
 import math
 import pdb
+from nlpSdynamics import NLP
 
 class LMPC(object):
     
@@ -66,26 +67,37 @@ class LMPC(object):
         for i in range(numIters):
             ftocp.solve(x0)
             
+            if not ftocp.feasible:
+                pdb.set_trace()
+            
             if self.printLevel >= 2:
                 # Need to convert back to x,y
                 xyCoords = []
-                # for j, state in enumerate(ftocp.xPred):
-                for state in xDemo:
+                for j, state in enumerate(ftocp.xPred):
                     try:
-                        x,y = self.spline.calcXY(state[0], state[1])
+                        # Account for numerical issues in solver
+                        # if state[0] < 0 and np.abs(state[0]) < 1e-4:
+                        #     x, y = self.spline.calcXY(0, state[1])
+                        # else:
+                        x, y = self.spline.calcXY(state[0], state[1])
                     except:
                         print('Error')
-                        if state[0] >= 1:
-                            continue
                         pdb.set_trace()
                     xyCoords.append((x,y))
                 xyCoords = np.array(xyCoords)
-                ax.plot(xyCoords[:,0], xyCoords[:,1], '--ob', label='SQP iter = ' + str(i))
+                if i == 0:
+                    color='r'
+                else:
+                    color='b'
+                print('i = ' + str(i))
+                ax.plot(xyCoords[:,0], xyCoords[:,1], '--o'+color, label='SQP iter = ' + str(i))
                 
-                # Visualize the safe set and target x,y
-                terminalXY = self.convertToXY(terminalPoints.T)
-                ax.scatter(terminalXY[:,0], terminalXY[:,1], label='Terminal Points')
+                # Visualize the safe set
+                if i == 0: 
+                    terminalXY = self.convertToXY(terminalPoints.T)
+                    ax.scatter(terminalXY[:,0], terminalXY[:,1], s=50, label='Terminal Points')
                 ax.legend()
+                plt.pause(0.001)
                 
                 pdb.set_trace()
             
@@ -229,23 +241,37 @@ class LMPC(object):
         self.SS.extend(xTraj)
         self.values.extend(pointValues)
     
-    def dynamics(self, x, u):
-        # state = [s, y, v, theta]
-        # input = [acc, theta_dot]
-        # use Euler discretization
-        gamma = self.spline.calc_yaw(x[0])
-        curvature = self.spline.calc_curvature(x[0])
-        deltaS = x[2] * math.cos(x[3] - gamma) / (1 - gamma * curvature)
-        deltaY = x[2] * math.sin(x[3] - gamma)
-        s_next      = x[0] + self.dt * deltaS
-        y_next      = x[1] + self.dt * deltaY
-        v_next      = x[2] + self.dt * u[0]
-        theta_next  = x[3] + self.dt * u[1]
+    # flag=1 to do dynamics via x
+    def dynamics(self, x, u, flag=1):
+        if flag:
+            curr_state = np.copy(x)
+            # Convert to (x,y)
+            curr_state[0], curr_state[1] = self.spline.calcXY(x[0],x[1])
+            acc = u[0]
+            theta_dot = u[1]
+            new_ang = theta_dot * self.dt + curr_state[3]
+            new_vel = acc*self.dt + curr_state[2]
+            new_x = curr_state[2] * self.dt * math.cos(curr_state[3]) + curr_state[0]
+            new_y = curr_state[2] * self.dt * math.sin(curr_state[3]) + curr_state[1]
+            # Convert back to (s,ey)
+            new_s, new_ey = self.spline.calcSY(new_x, new_y)
+            return [new_s, new_ey, new_vel, new_ang]
+                
+        else:
+            # state = [s, y, v, theta]
+            # input = [acc, theta_dot]
+            # use Euler discretization
+            gamma = self.spline.calc_yaw(x[0])
+            curvature = self.spline.calc_curvature(x[0])
+            deltaS = x[2] * math.cos(x[3] - gamma) / (1 - x[1] * curvature)
+            deltaY = x[2] * math.sin(x[3] - gamma)
+            s_next      = x[0] + self.dt * deltaS
+            y_next      = x[1] + self.dt * deltaY
+            v_next      = x[2] + self.dt * u[0]
+            theta_next  = x[3] + self.dt * u[1]
+            state_next = [s_next, y_next, v_next, theta_next]
+            return state_next
 
-        state_next = [s_next, y_next, v_next, theta_next]
-
-        return state_next
-    
     # Assume states is a list of states (or array where each row is a state)
     def convertToXY(self, states):
         xyStates = []
@@ -256,3 +282,98 @@ class LMPC(object):
                 pdb.set_trace()
             xyStates.append(np.array([x, y, state[2], state[3]]))
         return np.array(xyStates)
+    
+    # target velocity will interpolate between cruise_velocity and start
+    # and end goal velocity while s is within rampLength fraction of start/end
+    # Kvals controls proportionality constants of the controller
+    def createDemo(self, Kvals, cruise_velocity=1, rampLength = 0.05, ds=0.1, eps = 1, maxIter=1e3):
+        # nlp = NLP(overallN, self.Q, self.R, self.Qf, self.goal, self.dt, self.bx, self.bu, self.spline, self.printLevel)
+        # nlp.solve(self.start)
+        # return nlp.xPred, nlp.uPred, nlp.feasible
+        
+        # sVals = list(np.arange(0, self.spline.end, ds))
+        
+        # Placeholders
+        distLeft = np.inf
+        xPred = []
+        uPred = []
+        
+        count = 0
+        xTraj = [self.start]
+        uTraj = []
+        
+        plt.ion()
+        fig, ax = plt.subplots()
+        fig2, ax2 = plt.subplots()
+        fig3, ax3 = plt.subplots()
+        fig4, ax4 = plt.subplots()
+        fig5, ax5 = plt.subplots()
+        
+        splineLine = []
+        for s in np.linspace(0, self.spline.end, 1000, endpoint=False):
+            splineLine.append(self.spline.calc_position(s))
+        splineLine = np.array(splineLine)
+    
+        ax.plot(splineLine[:,0], splineLine[:,1], '--oy', label='Spline')
+        
+        count = 0
+        # while not sufficiently close to goal state and < max iterations:
+        while distLeft > eps and count < maxIter:        
+            currState = xTraj[-1]
+            currS = currState[0]
+            currY = currState[1]
+            currV = currState[2]
+            currTheta = currState[3]
+            try:
+                thetaTarget = self.spline.calc_yaw(currS)
+            except:
+                print('Error in yaw')
+                pdb.set_trace()
+            fractionDone = currS / self.spline.end
+
+            if fractionDone < rampLength:
+                alpha = fractionDone / rampLength
+                vTarget = self.start[2] * alpha + (1-alpha) * cruise_velocity
+            elif fractionDone > 1 - rampLength:
+                alpha = (1-fractionDone) / rampLength
+                vTarget = self.goal[2] * alpha + (1-alpha) * cruise_velocity
+            else:
+                vTarget = cruise_velocity
+            
+            a = Kvals[0] * (vTarget - currV) + Kvals[3] * np.abs(currY)
+            thetaDot = Kvals[1] * (thetaTarget - currTheta) + Kvals[2] * (-currY)
+            
+            thetaDot = np.clip(thetaDot, self.theta_dotMin, self.theta_dotMax)
+            a = np.clip(a, self.amin, self.amax)
+            
+            u = np.array([a, thetaDot])
+            xNext = self.dynamics(currState, u)
+            
+            xTraj.append(xNext)
+            uTraj.append(u)
+            
+            # 7. Compute the new distance to goal and update count
+            deltaX = xNext - self.goal
+            distLeft = deltaX.T @ self.Q @ deltaX
+            count += 1
+            x_1, x_2 = self.spline.calcXY(currS, currY)
+            ax.scatter(x_1, x_2, c='r', s=100)
+            ax2.scatter(count, thetaDot)
+            ax3.scatter(count, a)
+            ax4.scatter(count, currY)
+            ax5.scatter(count, self.spline.calc_curvature(currS))
+            if count % 100 == 0:                            
+                ax.set_title('Count = ' + str(count))
+                ax2.set_title('ThetaDot ' + str(count))
+                ax3.set_title('a ' + str(count))
+                ax4.set_title('currY ' + str(count))
+                fig.canvas.draw()
+                fig2.canvas.draw()
+                fig3.canvas.draw()
+                fig4.canvas.draw()
+                pdb.set_trace()
+                
+        
+        return xTraj, uTraj
+        
+            
