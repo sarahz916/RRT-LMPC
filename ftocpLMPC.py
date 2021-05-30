@@ -125,9 +125,9 @@ class FTOCP(object):
     # Aaron: modify the uGuess using the past trajectory so that can repeat and
     # solve via SQP
     def uGuessUpdate(self):
-        uPred = self.uPred
+        # uPred = self.uPred
         for i in range(0, self.N):
-            self.uGuess[i] = uPred[i]
+            self.uGuess[i] = np.copy(self.uPred[i])
         
     # Potentially round s-values that are negative but close to 0 to 0 and 
     # similarly for v-values
@@ -135,7 +135,8 @@ class FTOCP(object):
         # Extract predicted state and predicted input trajectories
         self.xPred = np.vstack((x0, np.reshape((self.Solution[np.arange(self.n*(self.N))]),(self.N,self.n))))
         self.uPred = np.reshape((self.Solution[self.n*(self.N)+np.arange(self.d*self.N)]),(self.N, self.d))
-        
+        self.lambdas = self.Solution[self.n*self.N+self.d*self.N:]
+                
         if roundIt:
             print('Called roundIt')
             self.xPred[np.where((self.xPred[:,0] < 0) * (np.abs(self.xPred[:,0]) < 1e-5)),0] = 0 
@@ -233,7 +234,7 @@ class FTOCP(object):
         # Hint 1: The equality constraint is: [Gx, Gu]*z = E * x(t) + C
         # Hint 2: Write on paper the matrices Gx and Gu to see how these matrices are constructed
         Gx = np.eye(self.n * self.N )
-        Gu = np.zeros((self.n * self.N, self.d*self.N) )
+        Gu = np.zeros((self.n * self.N, self.d*self.N))
 
         self.C = []
         E_eq = np.zeros((Gx.shape[0], self.n))
@@ -251,11 +252,14 @@ class FTOCP(object):
         G_eq = np.hstack((Gx, Gu))
         C_eq = self.C
         
+        # G_eq z = E_eq x0 + C_eq where z = [x | u | lambdas]
         # Modify G_eq to account for lambda
         largeG = np.zeros((G_eq.shape[0]+self.n+1, G_eq.shape[1]+self.k))
         largeG[:G_eq.shape[0], :G_eq.shape[1]] = G_eq
-        largeG[G_eq.shape[0] + 1:, self.n * (self.N-1): self.n * self.N] = -np.eye(self.n)
-        largeG[G_eq.shape[0] + 1:, -self.k:] = self.terminalPoints
+        # [0 ... 0 -I | 0 ... 0 | P] [x | u | lambdas].T = -I x_N + P lambdas
+        largeG[G_eq.shape[0]:(G_eq.shape[0]+self.n), self.n * (self.N-1): self.n * self.N] = -np.eye(self.n)
+        largeG[G_eq.shape[0]:(G_eq.shape[0]+self.n), -self.k:] = self.terminalPoints
+        # [0...0 | 0...0 | 1 ... 1] [x | u | lambdas].T = sum(lambdas)
         largeG[-1, -self.k:] = 1 # Adds constraint that sum of lambdas = 1
         G_eq = largeG
         
@@ -263,7 +267,9 @@ class FTOCP(object):
         E_eq = np.vstack([E_eq, np.zeros((self.n + 1, E_eq.shape[1]))])
         #C_eq = np.vstack([C_eq.T, np.zeros((self.k,))]) #C_eq.shape is (4, ) 
         C_eq = np.concatenate((C_eq, np.zeros((self.n + 1,))), axis=0)
-                
+        # Make last element 1 so that lambdas sum to 1        
+        C_eq[-1] = 1
+        
         if self.printLevel >= 2:
             print("G_eq: ")
             print(G_eq.shape)
@@ -309,7 +315,7 @@ class FTOCP(object):
 
     #     return A_linearized, B_linearized, C_linearized
 
-    def buildLinearizedMatrices(self, x, u):
+    def buildLinearizedMatrices(self, x, u, analytical=True):
         # s = x[0]
         # y = x[1]
         # v = x[2]
@@ -357,15 +363,69 @@ class FTOCP(object):
         # C = self.dynamics(x, u) - A @ x - B @ u
             
         # return A, B, C
-                                
-        merged = np.array(list(x) + list(u))
-        numJ = approx_jacobian(merged, lambda x: self.dynamics(x[:4], x[4:]), _epsilon)
-        
-        numA = numJ[:,:4]
-        numB = numJ[:, 4:]
-        numC = self.dynamics(x, u) - numA @ x - numB @ u
+                
+        if analytical:
+            spline = self.spline
+            dt = self.dt
+                            
+            s = x[0]
+            y = x[1]
+            v = x[2]
+            theta = x[3]
+            gamma = spline.calc_yaw(s)
+            k = spline.calc_curvature(s)
+            kPrime = spline.calc_curvaturePrime(s)
+            gammaPrime = spline.calc_yawPrime(s)
+            # d/ds [ cos(theta - gamma) / (1- gamma K)]
+            num = sin(theta - gamma) * gammaPrime * (1 - y * k) + \
+                    cos(theta - gamma) * y * kPrime
+            den = (1 - y * k)**2
             
-        return numA, numB, numC
+            A = np.zeros((4,4))
+            
+            # s derivatives
+            A[0,0] = 1 + v * dt * num/den
+            A[1,0] = - v * dt * cos(theta - gamma) * gammaPrime 
+            A[2,0] = 0
+            A[3,0] = 0
+            
+            # y derivatives
+            A[0,1] = v * dt * cos(theta - gamma) * k / den
+            A[1,1] = 1
+            A[2,1] = 0
+            A[3,1] = 0
+            
+            # v derivatives
+            A[0,2] = dt * cos(theta - gamma) / (1- y * k)
+            A[1,2] = dt * sin(theta - gamma)
+            A[2,2] = 1
+            A[3,2] = 0
+            
+            # theta derivatives
+            A[0,3] = - dt * v * sin(theta - gamma) / (1 - y * k)
+            A[1,3] = dt * v * cos(theta - gamma)
+            A[2,3] = 0
+            A[3,3] = 1
+            
+            B = np.zeros((4,2))
+            
+            B[2,0] = dt
+            B[3,1] = dt
+                
+            C = self.dynamics(x, u) - A @ x - B @ u
+            
+            return A, B, C
+
+        if not analytical:
+            merged = np.array(list(x) + list(u))
+            numJ = approx_jacobian(merged, lambda x: self.dynamics(x[:4], x[4:]), _epsilon)
+            
+            numA = numJ[:,:4]
+            numB = numJ[:, 4:]
+            numC = self.dynamics(x, u) - numA @ x - numB @ u
+                
+            return numA, numB, numC
+        
     
     def osqp_solve_qp(self, P, q, G= None, h=None, A=None, b=None, initvals=None):
         """ 

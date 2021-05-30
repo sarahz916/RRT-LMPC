@@ -67,7 +67,7 @@ def dynamics(x, u, dt, spline):
         curvature = spline.calc_curvature(x[0])
     except:
         pdb.set_trace()
-    deltaS = x[2] * cos(x[3] - gamma) / (1 - gamma * curvature)
+    deltaS = x[2] * cos(x[3] - gamma) / (1 - x[1] * curvature)
     deltaY = x[2] * sin(x[3] - gamma)
     s_next      = x[0] + dt * deltaS
     y_next      = x[1] + dt * deltaY
@@ -95,9 +95,9 @@ def buildLinearizedMatrices(x, u, dt, spline):
     kPrime = spline.calc_curvaturePrime(s)
     gammaPrime = spline.calc_yawPrime(s)
     # d/ds [ cos(theta - gamma) / (1- gamma K)]
-    num = sin(theta - gamma) * gammaPrime * (1 - gamma * k) + \
-            cos(theta - gamma) * (gammaPrime * k + kPrime * gamma)
-    den = (1 - gamma * k)**2
+    num = sin(theta - gamma) * gammaPrime * (1 - y * k) + \
+            cos(theta - gamma) * y * kPrime
+    den = (1 - y * k)**2
     
     A = np.zeros((4,4))
     
@@ -108,19 +108,19 @@ def buildLinearizedMatrices(x, u, dt, spline):
     A[3,0] = 0
     
     # y derivatives
-    A[0,1] = 0
+    A[0,1] = v * dt * cos(theta - gamma) * k / den
     A[1,1] = 1
     A[2,1] = 0
     A[3,1] = 0
     
     # v derivatives
-    A[0,2] = dt * cos(theta - gamma) / (1-gamma * k)
+    A[0,2] = dt * cos(theta - gamma) / (1- y * k)
     A[1,2] = dt * sin(theta - gamma)
     A[2,2] = 1
     A[3,2] = 0
     
     # theta derivatives
-    A[0,3] = - dt * v * sin(theta - gamma) / (1 - gamma * k)
+    A[0,3] = - dt * v * sin(theta - gamma) / (1 - y * k)
     A[1,3] = dt * v * cos(theta - gamma)
     A[2,3] = 0
     A[3,3] = 1
@@ -152,7 +152,7 @@ if __name__ == '__main__':
           
     # alphaVals = [0.1 * i for i in range(10)]
     alphaVals = [0, 0.5, 1]
-    dtVals = [10**i for i in range(-2,2)]
+    dtVals = [10**i for i in range(-1,2)]
     
     meanErrors = np.zeros((len(alphaVals), len(dtVals), 4))
     

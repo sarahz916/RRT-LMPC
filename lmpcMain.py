@@ -66,7 +66,7 @@ def main(j: int):
         
         # Create the spline
         path = np.array(path)
-        spline = Spline2D(path[:,0], path[:,1])
+        spline = Spline2D(path[:,0], path[:,1], ds=0.001)
                 
         # Need to create list of states for path
         fitted_path = fit_path(path, ds = 0.01)
@@ -81,7 +81,7 @@ def main(j: int):
     
     lmpcSolver = LMPC(N, K, Q, Qf, R, [], [], spline, dt, width, amax, amin, theta_dotMax, theta_dotMin, printLevel)    
     
-    plt.figure()
+    # plt.figure()
            
     # splineLine = []
     # for s in np.linspace(0, spline.end, 1000, endpoint=False):
@@ -152,9 +152,9 @@ def main(j: int):
             plt.figure()
             demoX = demo[1][1:]
             plt.plot(demoX[:,0], demoX[:,1], '--og', label='Original Demo')
-            # plt.plot(xyCoords[:,0], xyCoords[:,1], '--ob', label='Converted to S and Back')
-            # plt.plot(xExp[:,0], xExp[:,1], '--or', label='Predicted from control x')
-            # plt.plot(xSExp[:,0], xSExp[:,1], '--ok', label='Predicted from control s')
+            plt.plot(xyCoords[:,0], xyCoords[:,1], '--ob', label='Converted to S and Back')
+            plt.plot(xExp[:,0], xExp[:,1], '--or', label='Predicted from control x')
+            plt.plot(xSExp[:,0], xSExp[:,1], '--ok', label='Predicted from control s')
             plt.plot(splineLine[:,0], splineLine[:,1], '--oy', label='Spline')
             plt.legend()
             
