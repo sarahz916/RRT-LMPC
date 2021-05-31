@@ -36,7 +36,7 @@ class RRT():
     # def __init__(self, body: Body, max_iter, goal_sample_rate, expand_dis, 
     #              path_resolution, bubbleDist, dt):
     def __init__(self, body: Body, max_iter, goal_sample_rate, expand_dis, 
-             path_resolution, bubbleDist, min_theta):
+             path_resolution, bubbleDist, min_theta, maxLink=np.inf):
         self.start = self.Node(body.start[0], body.start[1])
         self.end = self.Node(body.end[0], body.end[1])
         self.min_rand = 0
@@ -49,6 +49,7 @@ class RRT():
         self.node_list = []
         self.bubbleDist = bubbleDist
         self.min_theta = min_theta
+        self.maxLink = maxLink
     
     def planning(self, animation=False):
         """
@@ -99,29 +100,48 @@ class RRT():
             return True
         return False
         
+    
     def clean_final_path(self, semi_final_path: list):
-        # Written by Sarah
-        # want to iterate through the paths and cut out nodes that aren't needed
-        # NOTE: since final node is not on path, cannot make last part of path 
-        # more efficient
-        final_path = []
-        i = 0
-        while i < len(semi_final_path):
-            prev = semi_final_path[i]
-            final_path.append(prev)
-            if i + 2 >= len(semi_final_path):
-                i += 1
-                continue
-            curr = semi_final_path[i + 2] # need to make sure 
-            # see if prev and curr can be connected
-            # if yes then connect
-            new_node = self.steer(self.Node(prev[0], prev[1]), self.Node(curr[0], curr[1]), self.expand_dis)
-            if self.check_collision(new_node, self.obstacle_list, self.bubbleDist):
-                final_path.append(curr)
-                i  = i+3
+        final_path = [semi_final_path[0]]
+        
+        ind = 1
+        count = 0
+        while ind < len(semi_final_path):
+            prev = final_path[-1]
+            curr = semi_final_path[ind]
+                
+            new_node = self.steer(self.Node(prev[0], prev[1]), self.Node(curr[0], curr[1]))
+            if self.check_collision(new_node, self.obstacle_list, self.bubbleDist) and count < self.maxLink:
+                candidate = curr
+                ind += 1
+                count += 1
             else:
-                i += 1
-            
+                final_path.append(candidate)
+                count = 0
+                        
+        final_path.append(semi_final_path[-1]) # Always add the end
+                
+        # # Written by Sarah
+        # # want to iterate through the paths and cut out nodes that aren't needed
+        # # NOTE: since final node is not on path, cannot make last part of path 
+        # # more efficient
+        # final_path = []
+        # i = 0
+        # while i < len(semi_final_path):
+        #     prev = semi_final_path[i]
+        #     final_path.append(prev)
+        #     if i + 2 >= len(semi_final_path):
+        #         i += 1
+        #         continue
+        #     curr = semi_final_path[i + 2] # need to make sure 
+        #     # see if prev and curr can be connected
+        #     # if yes then connect
+        #     new_node = self.steer(self.Node(prev[0], prev[1]), self.Node(curr[0], curr[1]), self.expand_dis)
+        #     if self.check_collision(new_node, self.obstacle_list, self.bubbleDist):
+        #         final_path.append(curr)
+        #         i  = i+3
+        #     else:
+        #         i += 1        
         return final_path
 
     def steer(self, from_node, to_node, extend_length=float("inf")):

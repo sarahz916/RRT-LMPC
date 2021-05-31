@@ -119,12 +119,16 @@ class FTOCP(object):
         self.osqp_solve_qp(self.H, self.q, self.G_in, np.add(self.w_in, np.dot(self.E_in,x0)), self.G_eq, np.add(np.dot(self.E_eq,x0), self.C_eq) )
         endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
         self.solverTime = deltaTimer
-		
-        # Unpack Solution
-        self.unpackSolution(x0)
+        
+        if self.feasible:		
+            # Unpack Solution
+            self.unpackSolution(x0)
         self.time += 1
-
-        return self.uPred[0,:]
+        
+        if self.feasible:
+            return self.uPred[0,:]
+        else:
+            return False
 
     # Aaron: modify the uGuess using the past trajectory so that can repeat and
     # solve via SQP
@@ -222,7 +226,7 @@ class FTOCP(object):
         listRegQ = [self.regQ] * self.N
         barRegQ = linalg.block_diag(*listRegQ)
 
-        listRegR = [self.regR] * (self.N)
+        listRegR = [self.regR] * self.N
         barRegR = linalg.block_diag(*listTotR)
 
         regH = linalg.block_diag(barRegQ, barRegR)

@@ -62,7 +62,7 @@ def calc_angle(curr_pt, next_pt):
 def nlp_to_end(body, curr_state,dt):
     x0 = np.array(curr_state)
     goal = np.array(body.end)
-    N  = 20; n = 4; d = 2;
+    N  = 50; n = 4; d = 2;
     Q  = 1*np.eye(n)
     R  = 1*np.eye(d)
     Qf = 1000*np.eye(n)

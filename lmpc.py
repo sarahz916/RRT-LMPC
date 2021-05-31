@@ -70,9 +70,9 @@ class LMPC(object):
             if count != 0:
                 currXEnd = np.copy(ftocp.xGuess[-1])
             
-            ftocp.solve(x0)
+            feasibleFlag = ftocp.solve(x0)
             
-            if not ftocp.feasible:
+            if type(feasibleFlag) != type(np.zeros(1)) or None in ftocp.xPred:
                 pdb.set_trace()
             
             # To update the linearization, use as uGuess the uPred from
@@ -159,7 +159,7 @@ class LMPC(object):
     # Run a full trajectory going from start to end of the spline using
     # closed-loop receding horizon updating
     # Takes in a previous (demonstration) trajectory
-    def runTrajectory(self, xDemo, uDemo, eps = 0.1, maxIter = 1e3):
+    def runTrajectory(self, xDemo, uDemo, eps = 1, maxIter = 500):
         # Placeholders
         distLeft = np.inf
         xPred = []
@@ -249,7 +249,8 @@ class LMPC(object):
             
             # 4. runSQP using the current state. Save uPred for step 3 and 
             # last state in xPred for step 1.
-            disp = (count % 50 == 0)
+            # disp = (count % 100 == 0)
+            disp = False
             # if disp:
             #     pdb.set_trace()
             
@@ -302,7 +303,10 @@ class LMPC(object):
         pointValues = []
         for i in range(M-1,-1,-1):
             deltaX = xTraj[i] - self.goal
-            stageCost = deltaX.T @ listQ[i] @ deltaX + uTraj[i].T @ listR[i] @ uTraj[i]
+            try:
+                stageCost = deltaX.T @ listQ[i] @ deltaX + uTraj[i].T @ listR[i] @ uTraj[i]
+            except:
+                pdb.set_trace()
             if len(pointValues):
                 costToCome = pointValues[-1]
             else:

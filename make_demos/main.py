@@ -46,7 +46,7 @@ def main(j: int):
         fitted_path = fit_path(np.array(path), ds = 0.1)
         demos = []
         for i in range(j):
-            inputs, states, f = make_demo(body, fitted_path, dt)
+            inputs, states, f = make_demo(body, fitted_path, dt, 50)
             if f == 1:
                 demos.append([inputs, states])
         # Draw final path

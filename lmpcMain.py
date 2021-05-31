@@ -43,29 +43,31 @@ def main(j: int):
     n = 4
     d = 2
     Q  = 1*np.eye(n)
-    R  = 0.01*np.eye(d)
+    R  = 0.1*np.eye(d)
     Qf = 1000*np.eye(n)
     regQ = 100*np.eye(n)
     regR = 100*np.eye(n)
-    dt = 0.1
+    dt = 0.05
     printLevel = 2
-    width = 0.2
+    width = 0.3
     numDemos = 10
     amax = body.max_acc
     amin = -body.max_acc
     theta_dotMax = body.max_theta_dot
     theta_dotMin = -body.max_theta_dot
-    path_length = 50    
+    path_length = 100    
     ######
 
     create = True
     
     if create:
-        # body, max_iter, goal_sample_rate, expand_dis, path_resolution, width, tightest branch turn angle
-        rrt = RRT(body, 1000, 50, 1, 0.01, width, 0) 
+        # body, max_iter, goal_sample_rate, expand_dis, path_resolution, width,
+        # tightest branch turn angle, how many skips to allow 
+        # (1 = no skips, 2 = 1 skip, etc.)
+        rrt = RRT(body, 2000, 50, 1, 0.01, width, math.pi/2, 3)
 
         path = rrt.planning()
-        
+                
         if path is None:
             print("Cannot find path")
             return 
@@ -204,9 +206,9 @@ def main(j: int):
         plt.plot(xyTraj[:,0], xyTraj[:,1], '--ob', label='Closed-Loop')
         plt.plot(splineLine[:,0], splineLine[:,1], '--oy', label='Spline')
         plt.legend()
-                
-        costs.append(lmpcSolver.updateSSandValueFunction(xTraj, uTraj))
+        
+        costs.append(lmpcSolver.updateSSandValueFunction(xTraj[1:], uTraj))
     return costs
 
 if __name__ == '__main__':
-    demos = main(10)
+    costs = main(10)
