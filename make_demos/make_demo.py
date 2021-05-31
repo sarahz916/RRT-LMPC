@@ -96,7 +96,7 @@ def make_demo(body: Body, org_path: list, dt, target_velocity = 1, tol = .0001):
         else:
             ang = calc_angle(curr_pt, next_pt)
             ang = ang + random.gauss(0, math.pi/200) #add noise 
-            noisy_tar_v = target_velocity + random.gauss(0, 2)
+            noisy_tar_v =  random.gauss(target_velocity, 3)
             if noisy_tar_v < 0:
                 noisy_tar_v = target_velocity
             tar_state = [next_pt[0], next_pt[1],noisy_tar_v , ang]
