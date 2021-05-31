@@ -36,7 +36,7 @@ class RRT():
     # def __init__(self, body: Body, max_iter, goal_sample_rate, expand_dis, 
     #              path_resolution, bubbleDist, dt):
     def __init__(self, body: Body, max_iter, goal_sample_rate, expand_dis, 
-             path_resolution, bubbleDist):
+             path_resolution, bubbleDist, min_theta):
         self.start = self.Node(body.start[0], body.start[1])
         self.end = self.Node(body.end[0], body.end[1])
         self.min_rand = 0
@@ -48,7 +48,7 @@ class RRT():
         self.obstacle_list = body.obs_list
         self.node_list = []
         self.bubbleDist = bubbleDist
-        #self.max_theta = body.max_theta_dot * dt
+        self.min_theta = min_theta
     
     def planning(self, animation=False):
         """
@@ -67,9 +67,8 @@ class RRT():
 
             # Note that this will check for collision along the entire path
             if self.check_collision(new_node, self.obstacle_list, self.bubbleDist):
-                _, ang = self.calc_distance_and_angle(nearest_node, new_node)
-                #if abs(ang) < self.max_theta:
-                self.node_list.append(new_node)
+                if self.check_theta(new_node):
+                    self.node_list.append(new_node)
 
             if animation:
                 self.draw_graph(rnd_node)
@@ -81,18 +80,32 @@ class RRT():
                 if self.check_collision(final_node, self.obstacle_list):
                     semi_final_path = self.generate_final_course(len(self.node_list) - 1)
                     # going to refine the final path
-                    # return self.clean_final_path(semi_final_path)
-                    return semi_final_path
+                    return self.clean_final_path(semi_final_path)
+                    #return semi_final_path
                 
         return None  # cannot find path
     
+    def check_theta(self, new_node):
+        parent_node = new_node.parent
+        if parent_node == None:
+            return True
+        grand_parent_node = parent_node.parent
+        if grand_parent_node == None:
+            return True
+        _, ang_1  = self.calc_distance_and_angle(parent_node, new_node)
+        _, ang_2  = self.calc_distance_and_angle(grand_parent_node, parent_node)
+        ang = math.pi - ang_2 + ang_1
+        if ang > self.min_theta and ang < 2*math.pi - self.min_theta:
+            return True
+        return False
+        
     def clean_final_path(self, semi_final_path: list):
         # Written by Sarah
         # want to iterate through the paths and cut out nodes that aren't needed
         # NOTE: since final node is not on path, cannot make last part of path 
         # more efficient
         final_path = []
-        i = 2
+        i = 0
         while i < len(semi_final_path):
             prev = semi_final_path[i]
             final_path.append(prev)
@@ -144,8 +157,6 @@ class RRT():
     # and don't put in goal anymore
     # add_inter = False
     def generate_final_course(self, goal_ind):
-        # Aaron changed so don't add the goal index
-        # path = []
         path = [(self.end.x, self.end.y)]
         node = self.node_list[goal_ind]
         while node.parent is not None:

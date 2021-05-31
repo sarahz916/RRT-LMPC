@@ -12,6 +12,7 @@ import numpy as np
 from cubic_spline_planner import fit_path
 import pdb
 import environments
+import math
 
 def show_path_and_demos(path, demos: list, j: int):
     plt.plot([x for (x, y) in path], [y for (x, y) in path], 'or')
@@ -31,10 +32,10 @@ def main(j: int):
     #                 (9, 5, 2), (8, 10, 1)]  # [x, y, radius]
     
     dt = .1
-    obstacleList = environments.obstacle_list_4
+    obstacleList = environments.obstacle_list_1
     # Set Initial parameters
-    body = Body(obstacleList,  start_state=(0, 0, 0, 0), end_state=(15, 15, 0, 0), max_grid = (15, 15))
-    rrt = RRT(body, 1000, 50, 1, 0.01, 0.2) # body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist
+    body = Body(obstacleList,  start_state=(0, 0, 0, 0), end_state=(2, 15, 0, 0), max_grid = (15, 15))
+    rrt = RRT(body, 1000, 50, 1, 0.01, 0.2, math.pi/2) # body, max_iter, goal_sample_rate, expand_dis, path_resolution, bubbleDist
     path = rrt.planning()
     if path is None:
         print("Cannot find path")

@@ -88,14 +88,14 @@ def make_demo(body: Body, org_path: list, dt, target_velocity = 1, tol = .0001):
     states = []
     inputs = []
     states.append(body.start)
-    while len(path) > 150: # Aaron made longer
+    while len(path) > 50: # Aaron made longer
         curr_pt = (states[-1][0], states[-1][1])
         curr_state = states[-1]
         if dist(curr_pt, next_pt) < dt * curr_state[2]: #is within a time step
             next_pt = path.pop(0)
         else:
             ang = calc_angle(curr_pt, next_pt)
-            ang = ang + random.gauss(0, math.pi/20) #add noise 
+            ang = ang + random.gauss(0, math.pi/50) #add noise 
             tar_state = [next_pt[0], next_pt[1], target_velocity, ang]
             next_input = calc_input(body, curr_state, tar_state, dt)
             inputs.append(next_input)
