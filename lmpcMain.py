@@ -38,13 +38,15 @@ def main(j: int):
     
     ### User-defined constants for LMPC ###
     goal = np.array(body.end)
-    N  = 40
-    K = 30
+    N  = 10
+    K = 100
     n = 4
     d = 2
     Q  = 1*np.eye(n)
     R  = 0.01*np.eye(d)
     Qf = 1000*np.eye(n)
+    regQ = 100*np.eye(n)
+    regR = 100*np.eye(n)
     dt = 0.1
     printLevel = 2
     width = 0.2
@@ -52,34 +54,46 @@ def main(j: int):
     amax = body.max_acc
     amin = -body.max_acc
     theta_dotMax = body.max_theta_dot
-    theta_dotMin = -body.max_theta_dot    
+    theta_dotMin = -body.max_theta_dot
+    path_length = 50    
     ######
 
-    rrt = RRT(body, 1000, 50, 1, 0.01, width) # body, max_iter, goal_sample_rate, expand_dis, path_resolution, width
+    create = True
     
-    path = rrt.planning()
-    if path is None:
-        print("Cannot find path")
-        return 
-    else:
-        print("found path!!")
+    if create:
+        # body, max_iter, goal_sample_rate, expand_dis, path_resolution, width, tightest branch turn angle
+        rrt = RRT(body, 1000, 50, 1, 0.01, width, 0) 
+
+        path = rrt.planning()
         
-        # Create the spline
+        if path is None:
+            print("Cannot find path")
+            return 
+        else:
+            print("found path!!")
+            
+         # Create the spline
         path = np.array(path)
-        spline = Spline2D(path[:,0], path[:,1], ds=0.001)
+        
+    else:
+        path = np.load('path.npy')
                 
-        # Need to create list of states for path
-        fitted_path = fit_path(path, ds = 0.01)
-        demos = []
-        for i in range(j):
-            inputs, states, f = make_demo(body, fitted_path, dt)
-            if f == 1:
-                demos.append([inputs, states])
+    spline = Spline2D(path[:,0], path[:,1], ds=0.001)
+    
+    # Need to create list of states for path
+    fitted_path = fit_path(path, ds = 0.01)
+    demos = []
+    for i in range(j):
+        inputs, states, f = make_demo(body, fitted_path, dt, path_length)
+        if f == 1:
+            demos.append([inputs, states])
+    
+    if create:
         # Draw final path
         rrt.draw_graph()
         show_path_and_demos(path, demos, j)
-    
-    lmpcSolver = LMPC(N, K, Q, Qf, R, [], [], spline, dt, width, amax, amin, theta_dotMax, theta_dotMin, printLevel)    
+        
+    lmpcSolver = LMPC(N, K, Q, Qf, R, regQ, regR, [], [], spline, dt, width, amax, amin, theta_dotMax, theta_dotMin, printLevel)    
     
     # plt.figure()
            
@@ -173,9 +187,26 @@ def main(j: int):
             # pdb.set_trace()
     
     # Pass in the N'th point of the last demonstrated trajectory
-    xTraj, uTraj = lmpcSolver.runTrajectory(xTraj, uTraj)
-    
-    return demos
+    costs = []
+    for i in range(10):
+        xTraj, uTraj = lmpcSolver.runTrajectory(xTraj, uTraj)
+        
+        print('Trajectory ' + str(i) + ' Completed!')
+        
+        # Visualize the resulting trajectory
+        
+        xyTraj = lmpcSolver.convertToXY(xTraj)
+        
+        plt.figure()
+        plt.title('Closed-Loop Trajectory: Iter = ' + str(i))
+        plt.xlabel(r'$x_1$')
+        plt.ylabel(r'$x_2$')
+        plt.plot(xyTraj[:,0], xyTraj[:,1], '--ob', label='Closed-Loop')
+        plt.plot(splineLine[:,0], splineLine[:,1], '--oy', label='Spline')
+        plt.legend()
+                
+        costs.append(lmpcSolver.updateSSandValueFunction(xTraj, uTraj))
+    return costs
 
 if __name__ == '__main__':
     demos = main(10)

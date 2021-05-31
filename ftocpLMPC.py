@@ -52,7 +52,7 @@ class FTOCP(object):
         - model: given x_t and u_t computes x_{t+1} = f( x_t, u_t )
     """
 
-    def __init__(self, N, Q, R, Fx, bx, Fu, bu, terminalPoints, valuePoints, spline, dt, uGuess, goal, printLevel):
+    def __init__(self, N, Q, R, Fx, bx, Fu, bu, regQ, regR, terminalPoints, valuePoints, spline, dt, uGuess, goal, printLevel):
         # Define variables
         self.printLevel = printLevel
 
@@ -81,10 +81,13 @@ class FTOCP(object):
         self.dt = dt
         self.uGuess = uGuess
         self.goal = goal
+        self.regQ = regQ
+        self.regR = regR
         
         self.buildIneqConstr()
         # self.buildAutomaticDifferentiationTree()
-        self.buildCost()
+        # Aaron moved to solve section so that can use xGuess, uGuess
+        # self.buildCost() 
 
         self.time = 0
 
@@ -103,6 +106,7 @@ class FTOCP(object):
         startTimer = datetime.datetime.now()
         self.simForward(x0, self.uGuess)
         self.buildEqConstr()
+        self.buildCost()
         endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
         self.linearizationTime = deltaTimer
 
@@ -138,9 +142,9 @@ class FTOCP(object):
         self.lambdas = self.Solution[self.n*self.N+self.d*self.N:]
                 
         if roundIt:
-            print('Called roundIt')
-            self.xPred[np.where((self.xPred[:,0] < 0) * (np.abs(self.xPred[:,0]) < 1e-5)),0] = 0 
-            self.xPred[np.where((self.xPred[:,2] < 0) * (np.abs(self.xPred[:,2]) < 1e-5)),2] = 0
+            # print('Called roundIt')
+            self.xPred[np.where((self.xPred[:,0] < 0) * (np.abs(self.xPred[:,0]) < 1e-3)),0] = 0 
+            self.xPred[np.where((self.xPred[:,2] < 0) * (np.abs(self.xPred[:,2]) < 1e-3)),2] = 0
         if self.printLevel >= 2:
             print("Predicted State Trajectory: ")
             print(self.xPred)
@@ -214,11 +218,27 @@ class FTOCP(object):
         largeH[:H.shape[0],:H.shape[1]] = H
         H = largeH
         
+        # Add regularization effect
+        listRegQ = [self.regQ] * self.N
+        barRegQ = linalg.block_diag(*listRegQ)
+
+        listRegR = [self.regR] * (self.N)
+        barRegR = linalg.block_diag(*listTotR)
+
+        regH = linalg.block_diag(barRegQ, barRegR)
+        
+        H[:self.N * (self.n+self.d), :self.N * (self.n+self.d)] += regH
+        
         # Now, extend q, should have length totSize and account for J
         largeq = np.zeros(totSize)
         largeq[:q.shape[0]] = q
         largeq[q.shape[0]:] = self.valuePoints
         q = largeq
+        
+        # Add regularization effect
+        # Exclude x0
+        xBar = np.hstack(list(self.xGuess[1:]) + list(self.uGuess))
+        q[:self.N * (self.n + self.d)] += -2 * regH @ xBar 
         
         ######
 

@@ -17,7 +17,7 @@ class LMPC(object):
     # runSQP SS is non-empty
     # SS should be a list of states and values contains corresponding value
     # for them
-    def __init__(self, N, K, Q, Qf, R, SS, values, spline, dt, width, amax, amin, theta_dotMax, theta_dotMin, printLevel):
+    def __init__(self, N, K, Q, Qf, R, regQ, regR, SS, values, spline, dt, width, amax, amin, theta_dotMax, theta_dotMin, printLevel):
         self.printLevel = printLevel
         self.N = N
         self.Q = Q
@@ -40,36 +40,66 @@ class LMPC(object):
         self.amin = amin
         self.theta_dotMax = theta_dotMax
         self.theta_dotMin = theta_dotMin
+        self.regQ = regQ
+        self.regR = regR
         
     # Given a current location, run one open-loop trajectory using SQP
     # numIters controls how many times to run batch approach
     # x0 is the start state, goal is the target state
     # Ultimately, when are repeatedly calling this function can use previous
     # uPred with offset of one as uGuess
-    def runSQP(self, x0, goal, terminalPoints, valuePoints, uGuess = None, numIters=5):
-        if uGuess is None:
-            uGuess = [np.array([self.amax / 100, 0])]*self.N
+    def runSQP(self, x0, goal, terminalPoints, valuePoints, uGuess, disp=False, maxIters=8, eps=0.1):
+        # if uGuess is None:
+        #     uGuess = [np.array([self.amax / 100, 0])]*self.N
         
-        ftocp = FTOCP(self.N, self.Q, self.R, self.Fx, self.bx, self.Fu, self.bu, terminalPoints, valuePoints, self.spline, self.dt, uGuess, goal, self.printLevel)
-        if self.printLevel >= 2:
-            fig, ax = plt.subplots()
-            ax.set_title('Predicted trajectory')
-            ax.set_xlabel('$x_1$')
-            ax.set_ylabel('$x_2$')
-                
+        ftocp = FTOCP(self.N, self.Q, self.R, self.Fx, self.bx, self.Fu, self.bu, \
+                      self.regQ, self.regR, terminalPoints, valuePoints, self.spline, self.dt, uGuess, goal, 0)
+        
         # Let's see what would happen if used uGuess to propogate solution
         xDemo = [x0]
         for i, ut in enumerate(uGuess):
             xDemo.append(self.dynamics(xDemo[-1], ut))
         demoXY = self.convertToXY(xDemo)
         
-        for i in range(numIters):
+        converged = False
+                
+        count = 0
+        while count < maxIters and not converged:
+            # print('Entering solver!!!!!!!!')
+            
+            if count != 0:
+                currXEnd = np.copy(ftocp.xGuess[-1])
+            
             ftocp.solve(x0)
             
             if not ftocp.feasible:
                 pdb.set_trace()
             
-            if self.printLevel >= 2:
+            # To update the linearization, use as uGuess the uPred from
+            # previous iteration (will then also update xGuess internally)
+            ftocp.uGuessUpdate() 
+            
+            # Look at the difference between past end and this end
+            nextXEnd = np.copy(ftocp.xGuess[-1]) 
+            
+            if count != 0:
+                deltaX = nextXEnd - currXEnd
+                if deltaX.T @ self.Q @ deltaX < eps:
+                    converged = True
+                    print('GUESS = ', nextXEnd)
+                    print('PRED = ', ftocp.xPred[-1])
+                    
+                # print('Iteration = ' + str(count))
+                # print('deltaX = ', deltaX)
+                # print('Converged = ', converged)
+                
+            if disp:
+                if self.printLevel >= 2 and count == 0:
+                    fig, ax = plt.subplots()
+                    ax.set_title('Predicted trajectory')
+                    ax.set_xlabel('$x_1$')
+                    ax.set_ylabel('$x_2$')
+                        
                 # Need to convert back to x,y
                 xyCoords = []
                 for j, state in enumerate(ftocp.xPred):
@@ -102,48 +132,49 @@ class LMPC(object):
                 
                 xyProp = self.convertToXY(xProp)
                 
-                print('i = ' + str(i))
-                # ax.plot(xyCoords[:,0], xyCoords[:,1], '--o', label='FTOCP result ' + str(i))
-                ax.plot(trueXY[:,0], trueXY[:,1], '--o', label='Nonlinear result ' + str(i))
-                # ax.plot(xyProp[:,0], xyProp[:,1], '--o', label='Linear result ' + str(i))
+                ax.plot(xyCoords[:,0], xyCoords[:,1], '--o', label='FTOCP result ' + str(count))
+                ax.plot(trueXY[:,0], trueXY[:,1], '--o', label='Nonlinear result ' + str(count))
+                # ax.plot(xyProp[:,0], xyProp[:,1], '--o', label='Linear result ' + str(count))
                 # Visualize the safe set
-                if i == 0: 
+                if count == 0: 
                     terminalXY = self.convertToXY(terminalPoints.T)
                     ax.scatter(terminalXY[:,0], terminalXY[:,1], color='k', s=50, label='Terminal Points')
-                    ax.plot(demoXY[:,0], demoXY[:,1], '--o', label='Guess ' + str(i))
+                    ax.plot(demoXY[:,0], demoXY[:,1], '--o', label='Guess ' + str(count))
                 ax.legend()
                 plt.pause(0.001)
                 
-                print('Lambdas sum to: ', sum(ftocp.lambdas))
-                print('Specify combination: ', sum([ftocp.lambdas[i] * ftocp.terminalPoints.T[i] for i in range(30)]))
-                print('ftocp final: ', ftocp.xPred[-1])
-            
-            if not ftocp.feasible or None in ftocp.xPred:
-                pdb.set_trace()
-                
-            # To update the linearization, use as uGuess the uPred from
-            # previous iteration (will then also update xGuess internally)
-            ftocp.uGuessUpdate() 
+                # print('Lambdas sum to: ', sum(ftocp.lambdas))
+                # print('Specify combination: ', sum([ftocp.lambdas[count] * ftocp.terminalPoints.T[count] for count in range(30)]))
+                # print('ftocp final: ', ftocp.xPred[-1])
+                # if ftocp.xPred[-1][2] - 1 > 1e-2:
+                #     pdb.set_trace()
+                    
+            count += 1
+
+        # pdb.set_trace()
         
         # Return the resulting predicted trajectory and control sequence
-        return ftocp.xPred, ftocp.uPred
+        return ftocp.xPred, ftocp.uPred, ftocp.xGuess
                 
     # Run a full trajectory going from start to end of the spline using
     # closed-loop receding horizon updating
     # Takes in a previous (demonstration) trajectory
-    def runTrajectory(self, xDemo, uDemo, eps = 1, maxIter = 1e3):
+    def runTrajectory(self, xDemo, uDemo, eps = 0.1, maxIter = 1e3):
         # Placeholders
         distLeft = np.inf
         xPred = []
         uPred = []
         
+        # Never used, just silence error
+        xGuess = []
+        
         count = 0
         xTraj = [self.start]
         uTraj = []
         
-        if self.printLevel >= 1:
-            plt.ion()
-            fig, ax = plt.subplots()
+        # if self.printLevel >= 1:
+        #     plt.ion()
+        #     fig, ax = plt.subplots()
         
         # while not sufficiently close to goal state and < max iterations:
         while distLeft > eps and count < maxIter:
@@ -160,8 +191,9 @@ class LMPC(object):
                 for i in range(self.N):
                     uGuess.append(uDemo[i])
             else:
-                target = xPred[-1]
-            
+                # target = xPred[-1]
+                target = xGuess[-1]
+                
             # 2. Determine terminal region
             # Select new terminalPoints and get corresponding valuePoints 
             # using nearest neighbors
@@ -170,33 +202,39 @@ class LMPC(object):
             terminalPoints = np.array([self.SS[ind] for ind in safeIndices]).T
             valuePoints = np.array([self.values[ind] for ind in safeIndices])
             
-            if self.printLevel >= 1:
-                x_1, y_1 = self.spline.calcXY(*xTraj[-1][:2])
-                ax.scatter(x_1, y_1, color='r')
+            # if self.printLevel >= 1:
+            #     x_1, y_1 = self.spline.calcXY(*xTraj[-1][:2])
+            #     ax.scatter(x_1, y_1, color='r')
                 
-            if self.printLevel >= 1 and count % 10 == 0:
-                # Visualize the safe set and target x,y
-                terminalXY = self.convertToXY(terminalPoints.T)
-                targetXY = self.spline.calcXY(target[0], target[1])
+            # if self.printLevel >= 1 and count % 10 == 0 and count > 0:
+            #     # Visualize the safe set and target x,y
+            #     terminalXY = self.convertToXY(terminalPoints.T)
+            #     targetXY = self.spline.calcXY(target[0], target[1])
                 
-                # Visualize the full set of demo points
-                demoXY = self.convertToXY(xDemo)
+            #     # Visualize the full set of demo points
+            #     demoXY = self.convertToXY(xDemo)
                 
-                ax.scatter(terminalXY[:,0], terminalXY[:,1], label='Terminal Points')
-                ax.scatter(targetXY[0], targetXY[1], label='Target')
+            #     ax.scatter(terminalXY[:,0], terminalXY[:,1], label='Terminal Points')
+            #     ax.scatter(targetXY[0], targetXY[1], label='Target')
                 
-                # plt.figure()
-                # plt.scatter(demoXY[:,0], demoXY[:,1], label='Full Demo')
-                # plt.scatter(terminalXY[:,0], terminalXY[:,1], label='Terminal Points')
-                # plt.scatter(targetXY[0], targetXY[1], label='Target')
+            #     # plt.figure()
+            #     # plt.scatter(demoXY[:,0], demoXY[:,1], label='Full Demo')
+            #     # plt.scatter(terminalXY[:,0], terminalXY[:,1], label='Terminal Points')
+            #     # plt.scatter(targetXY[0], targetXY[1], label='Target')
                 
-                plt.legend()
-                # plt.title('Visualizing Safe Set Points')
-                # plt.xlabel(r'$x_1$')
-                # plt.ylabel(r'$x_2$')
-                # plt.xlim([0,20])
-                # plt.ylim([0,20])
+            #     plt.legend()
+            #     plt.pause(0.001)
+            #     # plt.title('Visualizing Safe Set Points')
+            #     # plt.xlabel(r'$x_1$')
+            #     # plt.ylabel(r'$x_2$')
+            #     # plt.xlim([0,20])
+            #     # plt.ylim([0,20])
                 
+            
+            print('----> Current location = ')
+            print(xTraj[-1])
+            print('Fraction Completed = ', xTraj[-1][0] / self.spline.end)
+            
             # 3. If this is not the first iteration, set uGuess using
             # one-offset from past SQP uPred as in HW2 problem 1 ftocp 
             # uGuessUpdate code
@@ -211,7 +249,11 @@ class LMPC(object):
             
             # 4. runSQP using the current state. Save uPred for step 3 and 
             # last state in xPred for step 1.
-            xPred, uPred = self.runSQP(xTraj[-1], self.goal, terminalPoints, valuePoints, uGuess)
+            disp = (count % 50 == 0)
+            # if disp:
+            #     pdb.set_trace()
+            
+            xPred, uPred, xGuess = self.runSQP(xTraj[-1], self.goal, terminalPoints, valuePoints, uGuess, disp)
             
             # 5. Execute the first control action:
             # compute the updated state using the *nonlinear* dynamics and this
@@ -228,7 +270,7 @@ class LMPC(object):
             count += 1
             
         # return the list of executed control actions and corresponding states
-        xTraj, uTraj
+        return xTraj, uTraj
     
     # Takes in a state, determines K-nearest neighbors in SS, K = numNearest
     # and returns the relevant indices into SS
@@ -270,7 +312,10 @@ class LMPC(object):
         pointValues = pointValues[::-1]
         self.SS.extend(xTraj)
         self.values.extend(pointValues)
-    
+        
+        # Return the overall cost of the trajectory
+        return pointValues[0]
+        
     # flag=1 to do dynamics via x
     def dynamics(self, x, u, flag=1):
         if flag:
