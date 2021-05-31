@@ -74,7 +74,7 @@ def nlp_to_end(body, curr_state,dt):
     f = nlp.feasible
     return nlp.xPred, nlp.uPred, f
 
-def make_demo(body: Body, org_path: list, dt, target_velocity = 1, tol = .0001):
+def make_demo(body: Body, org_path: list, dt, path_length, target_velocity = 1, tol = .0001):
     # state:
     #   0 - position x
     #   1 - position y
@@ -88,7 +88,7 @@ def make_demo(body: Body, org_path: list, dt, target_velocity = 1, tol = .0001):
     states = []
     inputs = []
     states.append(body.start)
-    while len(path) > 50: # Aaron made longer
+    while len(path) > path_length:
         curr_pt = (states[-1][0], states[-1][1])
         curr_state = states[-1]
         if dist(curr_pt, next_pt) < dt * curr_state[2]: #is within a time step
