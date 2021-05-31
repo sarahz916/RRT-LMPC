@@ -38,7 +38,7 @@ def main(j: int):
     
     ### User-defined constants for LMPC ###
     goal = np.array(body.end)
-    N  = 10
+    N  = 20
     K = 100
     n = 4
     d = 2
@@ -49,7 +49,7 @@ def main(j: int):
     regR = 100*np.eye(n)
     dt = 0.05
     printLevel = 2
-    width = 0.3
+    width = 1
     numDemos = 10
     amax = body.max_acc
     amin = -body.max_acc
