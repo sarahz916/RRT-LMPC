@@ -97,8 +97,8 @@ class LMPC(object):
                 if self.printLevel >= 2 and count == 0:
                     fig, ax = plt.subplots()
                     ax.set_title('Predicted trajectory')
-                    ax.set_xlabel('$x_1$')
-                    ax.set_ylabel('$x_2$')
+                    ax.set_xlabel('x', fontsize=14)
+                    ax.set_ylabel('y', fontsize=14)
                         
                 # Need to convert back to x,y
                 xyCoords = []
@@ -132,7 +132,7 @@ class LMPC(object):
                 
                 xyProp = self.convertToXY(xProp)
                 
-                ax.plot(xyCoords[:,0], xyCoords[:,1], '--o', label='FTOCP result ' + str(count))
+                # ax.plot(xyCoords[:,0], xyCoords[:,1], '--o', label='FTOCP result ' + str(count))
                 ax.plot(trueXY[:,0], trueXY[:,1], '--o', label='Nonlinear result ' + str(count))
                 # ax.plot(xyProp[:,0], xyProp[:,1], '--o', label='Linear result ' + str(count))
                 # Visualize the safe set
@@ -249,10 +249,10 @@ class LMPC(object):
             
             # 4. runSQP using the current state. Save uPred for step 3 and 
             # last state in xPred for step 1.
-            # disp = (count % 100 == 0)
-            disp = False
-            # if disp:
-            #     pdb.set_trace()
+            disp = (count % 100 == 0)
+            # disp = False
+            if disp:
+                pdb.set_trace()
             
             xPred, uPred, xGuess = self.runSQP(xTraj[-1], self.goal, terminalPoints, valuePoints, uGuess, disp)
             
@@ -267,7 +267,7 @@ class LMPC(object):
             
             # 7. Compute the new distance to goal and update count
             deltaX = xNext - self.goal
-            distLeft = deltaX.T @ self.Q @ deltaX
+            distLeft = np.sqrt(deltaX.T @ self.Q @ deltaX)
             count += 1
             
         # return the list of executed control actions and corresponding states
@@ -297,21 +297,31 @@ class LMPC(object):
     def updateSSandValueFunction(self, xTraj, uTraj):
         # Start at trajectory end and work backwards adding costs
         M = len(xTraj)
-        listQ = [self.Q] * (M-1) + [self.Qf]
-        listR = [self.R] * M
+        listQ = [self.Q] * (M-1)
+        listR = [self.R] * (M-1)
         
         pointValues = []
         for i in range(M-1,-1,-1):
             deltaX = xTraj[i] - self.goal
-            try:
-                stageCost = deltaX.T @ listQ[i] @ deltaX + uTraj[i].T @ listR[i] @ uTraj[i]
-            except:
-                pdb.set_trace()
-            if len(pointValues):
-                costToCome = pointValues[-1]
+            if i == M-1:
+                pointValues.append(deltaX.T @ self.Qf @ deltaX)
             else:
-                costToCome = 0
-            pointValues.append(stageCost + costToCome)
+                stageCost = deltaX.T @ listQ[i] @ deltaX + uTraj[i].T @ listR[i] @ uTraj[i]
+                costToCome = pointValues[-1]
+                pointValues.append(stageCost + costToCome)
+        
+        # pointValues = []
+        # for i in range(M-1,-1,-1):
+        #     deltaX = xTraj[i] - self.goal
+        #     try:
+        #         stageCost = deltaX.T @ listQ[i] @ deltaX + uTraj[i].T @ listR[i] @ uTraj[i]
+        #     except:
+        #         pdb.set_trace()
+        #     if len(pointValues):
+        #         costToCome = pointValues[-1]
+        #     else:
+        #         costToCome = 0
+        #     pointValues.append(stageCost + costToCome)
         
         pointValues = pointValues[::-1]
         self.SS.extend(xTraj)

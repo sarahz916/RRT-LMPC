@@ -43,7 +43,7 @@ def main(j: int):
     n = 4
     d = 2
     Q  = 1*np.eye(n)
-    R  = 0.1*np.eye(d)
+    R  = 1e-3*np.eye(d)
     Qf = 1000*np.eye(n)
     regQ = 100*np.eye(n)
     regR = 100*np.eye(n)
@@ -118,7 +118,7 @@ def main(j: int):
     # Add all the trajectories
     for k, demo in enumerate(demos):
         # Need to convert from x,y to s,y representation
-        xTraj = np.copy(demo[1][1:]) # xTraj right now includes x(0) which remove
+        xTraj = np.copy(demo[1])
         for i,x in enumerate(xTraj):
             xTraj[i][:2] = spline.calcSY(xTraj[i][0], xTraj[i][1])
             if xTraj[i][0] < 0:
@@ -166,7 +166,7 @@ def main(j: int):
             splineLine = np.array(splineLine)
     
             plt.figure()
-            demoX = demo[1][1:]
+            demoX = demo[1]
             plt.plot(demoX[:,0], demoX[:,1], '--og', label='Original Demo')
             plt.plot(xyCoords[:,0], xyCoords[:,1], '--ob', label='Converted to S and Back')
             plt.plot(xExp[:,0], xExp[:,1], '--or', label='Predicted from control x')
@@ -207,7 +207,7 @@ def main(j: int):
         plt.plot(splineLine[:,0], splineLine[:,1], '--oy', label='Spline')
         plt.legend()
         
-        costs.append(lmpcSolver.updateSSandValueFunction(xTraj[1:], uTraj))
+        costs.append(lmpcSolver.updateSSandValueFunction(xTraj, uTraj))
     return costs
 
 if __name__ == '__main__':
