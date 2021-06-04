@@ -175,6 +175,7 @@ class Spline2D:
 
         return x, y
 
+    # Note that are using signed curvature here
     def calc_curvature(self, s):
         """
         calc curvature

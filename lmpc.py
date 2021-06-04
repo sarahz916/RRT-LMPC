@@ -17,7 +17,8 @@ class LMPC(object):
     # runSQP SS is non-empty
     # SS should be a list of states and values contains corresponding value
     # for them
-    def __init__(self, N, K, Q, Qf, R, regQ, regR, SS, values, spline, dt, width, amax, amin, theta_dotMax, theta_dotMin, printLevel):
+    def __init__(self, N, K, Q, Qf, R, regQ, regR, SS, values, spline, dt, \
+                 width, amax, amin, theta_dotMax, theta_dotMin, radius, printLevel, slackCost): #, memory):
         self.printLevel = printLevel
         self.N = N
         self.Q = Q
@@ -42,18 +43,22 @@ class LMPC(object):
         self.theta_dotMin = theta_dotMin
         self.regQ = regQ
         self.regR = regR
-        
+        self.radius = radius
+        self.slackCost = slackCost
+        self.trajLengths = []
+        # self.memory = memory
     # Given a current location, run one open-loop trajectory using SQP
     # numIters controls how many times to run batch approach
     # x0 is the start state, goal is the target state
     # Ultimately, when are repeatedly calling this function can use previous
     # uPred with offset of one as uGuess
-    def runSQP(self, x0, goal, terminalPoints, valuePoints, uGuess, disp=False, maxIters=8, eps=0.1):
+    def runSQP(self, x0, goal, terminalPoints, valuePoints, uGuess, disp=False, maxIters=8, eps=0.05):
         # if uGuess is None:
         #     uGuess = [np.array([self.amax / 100, 0])]*self.N
         
         ftocp = FTOCP(self.N, self.Q, self.R, self.Fx, self.bx, self.Fu, self.bu, \
-                      self.regQ, self.regR, terminalPoints, valuePoints, self.spline, self.dt, uGuess, goal, 0)
+                      self.regQ, self.regR, terminalPoints, valuePoints, self.spline, \
+                          self.dt, uGuess, goal, 0, self.slackCost)
         
         # Let's see what would happen if used uGuess to propogate solution
         xDemo = [x0]
@@ -68,26 +73,34 @@ class LMPC(object):
             # print('Entering solver!!!!!!!!')
             
             if count != 0:
-                currXEnd = np.copy(ftocp.xGuess[-1])
+                currX = np.copy(ftocp.xGuess)
             
             feasibleFlag = ftocp.solve(x0)
             
             if type(feasibleFlag) != type(np.zeros(1)) or None in ftocp.xPred:
+                plt.figure()
+                xyTerminal = self.convertToXY(ftocp.terminalPoints.T)
+                xyGuess = self.convertToXY(ftocp.xGuess)
+                plt.scatter(xyTerminal[:,0], xyTerminal[:,1], label='Terminal')
+                plt.scatter(xyGuess[:,0], xyGuess[:,1], label='Guess')
+                plt.legend()
+                
                 pdb.set_trace()
             
             # To update the linearization, use as uGuess the uPred from
             # previous iteration (will then also update xGuess internally)
             ftocp.uGuessUpdate() 
             
-            # Look at the difference between past end and this end
-            nextXEnd = np.copy(ftocp.xGuess[-1]) 
+            # Look at the difference between past first action and this action
+            nextX = np.copy(ftocp.xGuess) 
             
             if count != 0:
-                deltaX = nextXEnd - currXEnd
-                if deltaX.T @ self.Q @ deltaX < eps:
+                deltaX = nextX - currX
+                distances = np.sqrt(np.diag(deltaX @ self.Q @ deltaX.T)[1:])
+                if np.mean(distances) < eps:
                     converged = True
-                    print('GUESS = ', nextXEnd)
-                    print('PRED = ', ftocp.xPred[-1])
+                    # print('GUESS = ', nextX[-1])
+                    # print('PRED = ', ftocp.xPred[-1])
                     
                 # print('Iteration = ' + str(count))
                 # print('deltaX = ', deltaX)
@@ -96,7 +109,7 @@ class LMPC(object):
             if disp:
                 if self.printLevel >= 2 and count == 0:
                     fig, ax = plt.subplots()
-                    ax.set_title('Predicted trajectory')
+                    ax.set_title('Predicted trajectory', fontsize=14)
                     ax.set_xlabel('x', fontsize=14)
                     ax.set_ylabel('y', fontsize=14)
                         
@@ -134,7 +147,7 @@ class LMPC(object):
                 
                 # ax.plot(xyCoords[:,0], xyCoords[:,1], '--o', label='FTOCP result ' + str(count))
                 ax.plot(trueXY[:,0], trueXY[:,1], '--o', label='Nonlinear result ' + str(count))
-                # ax.plot(xyProp[:,0], xyProp[:,1], '--o', label='Linear result ' + str(count))
+                ax.plot(xyProp[:,0], xyProp[:,1], '--o', label='Linear result ' + str(count))
                 # Visualize the safe set
                 if count == 0: 
                     terminalXY = self.convertToXY(terminalPoints.T)
@@ -153,9 +166,12 @@ class LMPC(object):
 
         # pdb.set_trace()
         
+        slackContr = ftocp.slack.T @ self.slackCost @ ftocp.slack
+        
+        print('slackContr = ', slackContr)
         # Return the resulting predicted trajectory and control sequence
-        return ftocp.xPred, ftocp.uPred, ftocp.xGuess
-                
+        return ftocp.xPred, ftocp.uPred, ftocp.xGuess, ftocp.Cost, slackContr
+    
     # Run a full trajectory going from start to end of the spline using
     # closed-loop receding horizon updating
     # Takes in a previous (demonstration) trajectory
@@ -176,6 +192,15 @@ class LMPC(object):
         #     plt.ion()
         #     fig, ax = plt.subplots()
         
+        # For display purposes
+        xTrajList = []
+        terminalPointsList = []
+        counts = []
+        mismatchFirst = []
+        mismatchLast = []
+        openLoopCosts = []
+        slacks = []
+        
         # while not sufficiently close to goal state and < max iterations:
         while distLeft > eps and count < maxIter:
             print('Count is ' + str(count))
@@ -191,13 +216,23 @@ class LMPC(object):
                 for i in range(self.N):
                     uGuess.append(uDemo[i])
             else:
-                # target = xPred[-1]
-                target = xGuess[-1]
-                
+                target = xPred[-1]
+                # target = xGuess[-1]
+            
             # 2. Determine terminal region
             # Select new terminalPoints and get corresponding valuePoints 
             # using nearest neighbors
             safeIndices = self.computeKnearest(self.K, target)
+            if len(xGuess):
+                guessSafeIndices = self.computeKnearest(self.K, xGuess[-1])
+                safeIndices = np.concatenate([safeIndices, guessSafeIndices])
+                
+            # safeIndices = self.getTerminalPoints(self.K, target)
+            # if len(xGuess):
+            #     guessSafeIndices = self.getTerminalPoints(self.K, xGuess[-1])
+            #     safeIndices = np.concatenate([safeIndices, guessSafeIndices])   
+                
+            # safeIndices = self.getTerminalPoints(self.K, target)
             # Should be a matrix of form n x K
             terminalPoints = np.array([self.SS[ind] for ind in safeIndices]).T
             valuePoints = np.array([self.values[ind] for ind in safeIndices])
@@ -206,11 +241,15 @@ class LMPC(object):
             #     x_1, y_1 = self.spline.calcXY(*xTraj[-1][:2])
             #     ax.scatter(x_1, y_1, color='r')
                 
-            # if self.printLevel >= 1 and count % 10 == 0 and count > 0:
+            # if self.printLevel >= 1:
+            #     plt.figure()
             #     # Visualize the safe set and target x,y
             #     terminalXY = self.convertToXY(terminalPoints.T)
             #     targetXY = self.spline.calcXY(target[0], target[1])
-                
+            #     plt.scatter(terminalXY[:,0], terminalXY[:,1])
+            #     plt.scatter(targetXY[0], targetXY[1])
+            # pdb.set_trace()
+            
             #     # Visualize the full set of demo points
             #     demoXY = self.convertToXY(xDemo)
                 
@@ -249,17 +288,36 @@ class LMPC(object):
             
             # 4. runSQP using the current state. Save uPred for step 3 and 
             # last state in xPred for step 1.
-            disp = (count % 100 == 0)
-            # disp = False
+            disp = (count % 50 == 0) and count > 0
+            # disp = True
             if disp:
-                pdb.set_trace()
+                xTrajList.append(np.copy(xTraj))
+                terminalPointsList.append(np.copy(terminalPoints))
+                counts.append(count)
+                # pdb.set_trace()
             
-            xPred, uPred, xGuess = self.runSQP(xTraj[-1], self.goal, terminalPoints, valuePoints, uGuess, disp)
+            xPred, uPred, xGuess, openLoopCost, slack = \
+                self.runSQP(xTraj[-1], self.goal, terminalPoints, valuePoints, uGuess, disp)
+            
+            # Also record where the solver thought it was going
+            # expected.append(xPred[1])
+            
+            slacks.append(slack)
+            
+            # Record the open loop (regularized) cost
+            openLoopCosts.append(openLoopCost)
             
             # 5. Execute the first control action:
             # compute the updated state using the *nonlinear* dynamics and this
             # control action.
             xNext = self.dynamics(xTraj[-1], uPred[0])
+            
+            xDemo = [xPred[0]]
+            for i, ut in enumerate(uPred):
+                xDemo.append(self.dynamics(xDemo[-1], ut))
+            
+            mismatchFirst.append(np.abs(xPred[1] - xNext))
+            mismatchLast.append(np.abs(xPred[-1] - xDemo[-1]))
             
             # 6. Record the executed control action and updated state  
             xTraj.append(xNext)
@@ -270,16 +328,32 @@ class LMPC(object):
             distLeft = np.sqrt(deltaX.T @ self.Q @ deltaX)
             count += 1
             
+        xTrajList.append(np.copy(xTraj))
+        terminalPointsList.append(np.copy(terminalPoints))
+        counts.append(count)
+        
+        # fig1, axes1 = self.visualizeElapsedTrajectory(xTrajList, terminalPointsList, counts)
+                
+        # fig2, ax2 = self.visualizeHeatmapTrajectory(xTraj)
+        
+        # pdb.set_trace()
+
         # return the list of executed control actions and corresponding states
-        return xTraj, uTraj
+        return xTraj, uTraj, xTrajList, terminalPointsList, counts, mismatchFirst, mismatchLast, openLoopCosts, slacks
     
     # Takes in a state, determines K-nearest neighbors in SS, K = numNearest
     # and returns the relevant indices into SS
     # Uses inner product defined by self.Q
     def computeKnearest(self, numNearest, target):
+        # if len(self.trajLengths) > self.memory:
+        #     forget = sum(self.trajLengths[:-self.memory]) - len(self.trajLengths) + self.memory
+        #    safeset = np.copy(self.SS[forget:])
+        # else:
+        #     safeset = np.copy(self.SS)
         # Each state in self.SS will become a row
         # Should be numStates x n 
-        deltaX = target - np.array(self.SS) 
+        safeset = self.SS
+        deltaX = target - np.array(safeset) 
         numStates = deltaX.shape[0]
         # listQ = [self.Q] * numStates
         # barQ = linalg.block_diag(linalg.block_diag(*listQ))
@@ -291,6 +365,27 @@ class LMPC(object):
         # distance = deltaX.T @ barQ @ deltaX
         return np.argsort(distance)[:numNearest]
     
+    # Consider uniformly drawing terminal points from a ball around the target
+    
+    def getTerminalPoints(self, numPoints, target):
+        # Each state in self.SS will become a row
+        # Should be numStates x n 
+        deltaX = target - np.array(self.SS) 
+        numStates = deltaX.shape[0]
+        # listQ = [self.Q] * numStates
+        # barQ = linalg.block_diag(linalg.block_diag(*listQ))
+        
+        # Diagonal elements of this matrix give the squared Q-norms
+        distance = np.sqrt(np.diag(deltaX @ self.Q @ deltaX.T))
+        
+        neighborRad = np.sort(distance)[numPoints]
+        
+        r = max(neighborRad, self.radius)
+        
+        closeIndices = np.where(distance < r)[0]
+        numNear = len(closeIndices)
+        return np.random.choice(closeIndices, min(numNear, numPoints))
+        
     # Given a new, full trajectory defined by xTraj, uTraj update the SS
     # and value function
     # xTraj, uTraj should be lists where each element is an array
@@ -310,26 +405,30 @@ class LMPC(object):
                 costToCome = pointValues[-1]
                 pointValues.append(stageCost + costToCome)
         
-        # pointValues = []
-        # for i in range(M-1,-1,-1):
-        #     deltaX = xTraj[i] - self.goal
-        #     try:
-        #         stageCost = deltaX.T @ listQ[i] @ deltaX + uTraj[i].T @ listR[i] @ uTraj[i]
-        #     except:
-        #         pdb.set_trace()
-        #     if len(pointValues):
-        #         costToCome = pointValues[-1]
-        #     else:
-        #         costToCome = 0
-        #     pointValues.append(stageCost + costToCome)
         
         pointValues = pointValues[::-1]
         self.SS.extend(xTraj)
         self.values.extend(pointValues)
+        self.trajLengths.append(len(xTraj))
         
         # Return the overall cost of the trajectory
         return pointValues[0]
-        
+
+    # Removed buggy code for above
+    # pointValues = []
+    # for i in range(M-1,-1,-1):
+    #     deltaX = xTraj[i] - self.goal
+    #     try:
+    #         stageCost = deltaX.T @ listQ[i] @ deltaX + uTraj[i].T @ listR[i] @ uTraj[i]
+    #     except:
+    #         pdb.set_trace()
+    #     if len(pointValues):
+    #         costToCome = pointValues[-1]
+    #     else:
+    #         costToCome = 0
+    #     pointValues.append(stageCost + costToCome)
+            
+
     # flag=1 to do dynamics via x
     def dynamics(self, x, u, flag=1):
         if flag:
@@ -391,19 +490,19 @@ class LMPC(object):
         xTraj = [self.start]
         uTraj = []
         
-        plt.ion()
-        fig, ax = plt.subplots()
-        fig2, ax2 = plt.subplots()
-        fig3, ax3 = plt.subplots()
-        fig4, ax4 = plt.subplots()
-        fig5, ax5 = plt.subplots()
+        # plt.ion()
+        # fig, ax = plt.subplots()
+        # fig2, ax2 = plt.subplots()
+        # fig3, ax3 = plt.subplots()
+        # fig4, ax4 = plt.subplots()
+        # fig5, ax5 = plt.subplots()
         
         splineLine = []
         for s in np.linspace(0, self.spline.end, 1000, endpoint=False):
             splineLine.append(self.spline.calc_position(s))
         splineLine = np.array(splineLine)
     
-        ax.plot(splineLine[:,0], splineLine[:,1], '--oy', label='Spline')
+        # ax.plot(splineLine[:,0], splineLine[:,1], '--oy', label='Spline')
         
         count = 0
         # while not sufficiently close to goal state and < max iterations:
@@ -448,23 +547,81 @@ class LMPC(object):
             
             count += 1
             x_1, x_2 = self.spline.calcXY(currS, currY)
-            ax.scatter(x_1, x_2, c='r', s=100)
-            ax2.scatter(count, thetaDot)
-            ax3.scatter(count, a)
-            ax4.scatter(count, currY)
-            ax5.scatter(count, self.spline.calc_curvature(currS))
-            if count % 500 == 0:                            
-                ax.set_title('Count = ' + str(count))
-                ax2.set_title('ThetaDot ' + str(count))
-                ax3.set_title('a ' + str(count))
-                ax4.set_title('currY ' + str(count))
-                fig.canvas.draw()
-                fig2.canvas.draw()
-                fig3.canvas.draw()
-                fig4.canvas.draw()
-                pdb.set_trace()
+            # ax.scatter(x_1, x_2, c='r', s=100)
+            # ax2.scatter(count, thetaDot)
+            # ax3.scatter(count, a)
+            # ax4.scatter(count, currY)
+            # ax5.scatter(count, self.spline.calc_curvature(currS))
+            # if count % 500 == 0:                            
+            #     ax.set_title('Count = ' + str(count))
+            #     ax2.set_title('ThetaDot ' + str(count))
+            #     ax3.set_title('a ' + str(count))
+            #     ax4.set_title('currY ' + str(count))
+            #     fig.canvas.draw()
+            #     fig2.canvas.draw()
+            #     fig3.canvas.draw()
+            #     fig4.canvas.draw()
+            #     pdb.set_trace()
                 
+        pdb.set_trace()
         
         return xTraj, uTraj
+    
+    def visualizeElapsedTrajectory(self, xTrajList, terminalPointsList, counts):
+        n = len(xTrajList)
+        fig, axes = plt.subplots(n) 
         
+        splineLine = []
+        for s in np.linspace(0, self.spline.end, 1000, endpoint=False):
+            splineLine.append(self.spline.calc_position(s))
+        splineLine = np.array(splineLine)
+        
+        for i in range(n):
+            ax = axes[i]
+            xTraj = np.copy(xTrajList[i])
+            terminalPoints = np.copy(terminalPointsList[i])
             
+            # Plot the spline
+            ax.plot(splineLine[:,0], splineLine[:,1], '--r', label='Spline')
+        
+            # Plot the terminal points
+            terminalXY = self.convertToXY(terminalPoints.T)
+            ax.scatter(terminalXY[:,0], terminalXY[:,1], color='k', s=50, label='Terminal Points')
+                
+            # Plot the elapsed trajectory
+            xyCoords = self.convertToXY(xTraj)
+            ax.plot(xyCoords[:,0], xyCoords[:,1], '--ob', label='Elapsed')
+            
+            if i == 0:
+                ax.legend()
+            # ax.set_xlabel('x')
+            # ax.set_ylabel('y')
+            # ax.set_title('Count = ' + str(counts[i]))
+        
+        fig.suptitle('Closed-Loop Trajectory')
+        # fig.tight_layout()
+        
+        return fig, axes
+    
+    def visualizeHeatmapTrajectory(self, xTraj, vMax):
+        fig, ax = plt.subplots() 
+
+        splineLine = []
+        for s in np.linspace(0, self.spline.end, 1000, endpoint=False):
+            splineLine.append(self.spline.calc_position(s))
+        splineLine = np.array(splineLine)
+    
+        # Plot the spline
+        ax.plot(splineLine[:,0], splineLine[:,1], '--r', label='Spline')
+        
+        velocities = np.array(xTraj)[:,2]
+        
+        # Plot the elapsed trajectory
+        xyCoords = self.convertToXY(xTraj)
+        cm = plt.cm.get_cmap('viridis')
+        sc = ax.scatter(xyCoords[:,0], xyCoords[:,1], c=velocities, cmap=cm, label='Traj')
+        plt.colorbar(sc)
+        
+        ax.legend()
+            
+        return fig, ax

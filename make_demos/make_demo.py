@@ -62,7 +62,7 @@ def calc_angle(curr_pt, next_pt):
 def nlp_to_end(body, curr_state,dt):
     x0 = np.array(curr_state)
     goal = np.array(body.end)
-    N  = 50; n = 4; d = 2;
+    N  = 10; n = 4; d = 2;
     Q  = 1*np.eye(n)
     R  = 1*np.eye(d)
     Qf = 1000*np.eye(n)
@@ -95,8 +95,10 @@ def make_demo(body: Body, org_path: list, dt, path_length, target_velocity = 1, 
             next_pt = path.pop(0)
         else:
             ang = calc_angle(curr_pt, next_pt)
-            ang = ang + random.gauss(0, math.pi/200) #add noise 
-            noisy_tar_v =  random.gauss(target_velocity, 3)
+            # Aaron increased from math.pi/200
+            ang = ang + random.gauss(0, math.pi/100) #add noise 
+            # Aaron increasing from 3
+            noisy_tar_v =  random.gauss(target_velocity, 6)
             if noisy_tar_v < 0:
                 noisy_tar_v = target_velocity
             tar_state = [next_pt[0], next_pt[1],noisy_tar_v , ang]

@@ -52,7 +52,7 @@ class FTOCP(object):
         - model: given x_t and u_t computes x_{t+1} = f( x_t, u_t )
     """
 
-    def __init__(self, N, Q, R, Fx, bx, Fu, bu, regQ, regR, terminalPoints, valuePoints, spline, dt, uGuess, goal, printLevel):
+    def __init__(self, N, Q, R, Fx, bx, Fu, bu, regQ, regR, terminalPoints, valuePoints, spline, dt, uGuess, goal, printLevel, slackCost):
         # Define variables
         self.printLevel = printLevel
 
@@ -83,6 +83,7 @@ class FTOCP(object):
         self.goal = goal
         self.regQ = regQ
         self.regR = regR
+        self.slackCost = slackCost
         
         self.buildIneqConstr()
         # self.buildAutomaticDifferentiationTree()
@@ -144,7 +145,8 @@ class FTOCP(object):
         self.xPred = np.vstack((x0, np.reshape((self.Solution[np.arange(self.n*(self.N))]),(self.N,self.n))))
         self.uPred = np.reshape((self.Solution[self.n*(self.N)+np.arange(self.d*self.N)]),(self.N, self.d))
         self.lambdas = self.Solution[self.n*self.N+self.d*self.N:]
-                
+        self.slack = self.Solution[-self.n:]
+
         if roundIt:
             # print('Called roundIt')
             self.xPred[np.where((self.xPred[:,0] < 0) * (np.abs(self.xPred[:,0]) < 1e-3)),0] = 0 
@@ -177,9 +179,10 @@ class FTOCP(object):
         w_in = np.hstack((bxtot, butot))
         
         # Horizontally stack G_in with [0 -I] to account for lambda
-        largeG = np.zeros((G_in.shape[0]+self.k, G_in.shape[1]+self.k))
+        # Add self.n block of zero for slack variable
+        largeG = np.zeros((G_in.shape[0]+self.k, G_in.shape[1]+self.k+self.n))
         largeG[:G_in.shape[0],:G_in.shape[1]] = G_in
-        largeG[-self.k:, -self.k:] = -np.eye(self.k)
+        largeG[G_in.shape[0]:G_in.shape[0]+self.k, G_in.shape[1]:G_in.shape[1]+self.k] = -np.eye(self.k)
         G_in = largeG
         
         # Add 0 block below for lambda
@@ -216,8 +219,9 @@ class FTOCP(object):
         q = -2 * H @ zGoal
 
         # Now, embed H into larger 0 matrix to account for lambdas
-        # Overall size of H should be self.N * self.n + self.N * self.d + self.k 
-        totSize = self.N * self.n + self.N * self.d + self.k
+        # Overall size of H should be self.N * self.n + self.N * self.d + self.k
+        # Add block for slack variable in bottom right
+        totSize = self.N * self.n + self.N * self.d + self.k + self.n
         largeH = np.zeros((totSize, totSize))
         largeH[:H.shape[0],:H.shape[1]] = H
         H = largeH
@@ -233,10 +237,13 @@ class FTOCP(object):
         
         H[:self.N * (self.n+self.d), :self.N * (self.n+self.d)] += regH
         
+        # Add slack cost
+        H[-self.n:, -self.n:] = self.slackCost
+        
         # Now, extend q, should have length totSize and account for J
         largeq = np.zeros(totSize)
         largeq[:q.shape[0]] = q
-        largeq[q.shape[0]:] = self.valuePoints
+        largeq[q.shape[0]:q.shape[0]+self.k] = self.valuePoints
         q = largeq
         
         # Add regularization effect
@@ -277,14 +284,17 @@ class FTOCP(object):
         C_eq = self.C
         
         # G_eq z = E_eq x0 + C_eq where z = [x | u | lambdas]
-        # Modify G_eq to account for lambda
-        largeG = np.zeros((G_eq.shape[0]+self.n+1, G_eq.shape[1]+self.k))
+        # Modify G_eq to account for lambda and slack
+        largeG = np.zeros((G_eq.shape[0]+self.n+1, G_eq.shape[1]+self.k+self.n))
         largeG[:G_eq.shape[0], :G_eq.shape[1]] = G_eq
         # [0 ... 0 -I | 0 ... 0 | P] [x | u | lambdas].T = -I x_N + P lambdas
         largeG[G_eq.shape[0]:(G_eq.shape[0]+self.n), self.n * (self.N-1): self.n * self.N] = -np.eye(self.n)
-        largeG[G_eq.shape[0]:(G_eq.shape[0]+self.n), -self.k:] = self.terminalPoints
+        # Add in slack
+        largeG[G_eq.shape[0]:(G_eq.shape[0]+self.n), largeG.shape[1]-self.n:] = -np.eye(self.n)
+        largeG[G_eq.shape[0]:(G_eq.shape[0]+self.n), largeG.shape[1]-self.n-self.k:largeG.shape[1]-self.n] \
+            = self.terminalPoints
         # [0...0 | 0...0 | 1 ... 1] [x | u | lambdas].T = sum(lambdas)
-        largeG[-1, -self.k:] = 1 # Adds constraint that sum of lambdas = 1
+        largeG[-1, largeG.shape[1]-self.n-self.k:largeG.shape[1]-self.n] = 1 # Adds constraint that sum of lambdas = 1
         G_eq = largeG
         
         # Modify E_eq, C_eq to account for lambda
@@ -480,7 +490,11 @@ class FTOCP(object):
             print("The FTOCP is not feasible at time t = ", self.time)
 
         self.Solution = res.x
-
+        try:
+            self.Cost = 1/2 * self.Solution.T @ P @ self.Solution + q.T @ self.Solution
+        except:
+            pdb.set_trace()
+            
     # flag=1 to do dynamics via x
     def dynamics(self, x, u, flag=1):
         if flag:
